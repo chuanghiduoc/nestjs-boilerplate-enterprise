@@ -16,9 +16,6 @@ export * from './pipes';
 // Filters
 export * from './filters';
 
-// Exceptions
-export * from './exceptions';
-
 // Utils
 export * from './utils';
 

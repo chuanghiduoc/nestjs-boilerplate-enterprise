@@ -1,21 +1,7 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import { Observable, map } from 'rxjs';
 import { Response } from 'express';
-import { PaginationMeta } from '../utils/pagination.util';
-
-/**
- * API Response interface following Section 11.1
- */
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  meta?: ResponseMeta;
-}
-
-export interface ResponseMeta {
-  pagination?: PaginationMeta;
-  [key: string]: unknown;
-}
+import type { ApiResponse, ResponseMeta } from '../dtos/response.dto';
 
 /**
  * Transform Response Interceptor

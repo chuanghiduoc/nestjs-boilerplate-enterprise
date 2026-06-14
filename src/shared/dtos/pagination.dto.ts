@@ -86,15 +86,3 @@ export class PaginationMetaDto {
   @Field()
   hasPrevPage!: boolean;
 }
-
-/**
- * Pagination Meta Interface
- */
-export interface PaginationMeta {
-  page: number;
-  limit: number;
-  totalItems: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-}

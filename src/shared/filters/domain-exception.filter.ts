@@ -2,7 +2,7 @@ import { ExceptionFilter, Catch, ArgumentsHost, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { DomainException } from '@core/domain/base';
 import { ErrorCodeToHttpStatus } from '../constants';
-import type { ErrorResponse } from './all-exceptions.filter';
+import type { ErrorResponse } from '../dtos/response.dto';
 
 /**
  * Domain Exception Filter

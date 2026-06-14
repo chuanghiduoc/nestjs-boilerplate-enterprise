@@ -1,7 +1,7 @@
 import { ExceptionFilter, Catch, ArgumentsHost, BadRequestException } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { ErrorCode } from '../constants';
-import type { ErrorDetail, ErrorResponse } from './all-exceptions.filter';
+import type { ErrorDetail, ErrorResponse } from '../dtos/response.dto';
 
 /**
  * Validation Exception Filter

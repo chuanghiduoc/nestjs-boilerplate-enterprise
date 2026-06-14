@@ -8,7 +8,7 @@ import {
 import { validate, type ValidationError as ClassValidatorError } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { ErrorCode } from '../constants';
-import type { ErrorDetail } from '../filters/all-exceptions.filter';
+import type { ErrorDetail } from '../dtos/response.dto';
 
 /**
  * Custom Validation Pipe

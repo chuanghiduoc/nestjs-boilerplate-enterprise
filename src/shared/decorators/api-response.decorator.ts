@@ -65,13 +65,6 @@ export function ApiSuccessResponse(
         properties: {
           success: { type: 'boolean', example: true },
           data: { $ref: getSchemaPath(dataType) },
-          meta: {
-            type: 'object',
-            properties: {
-              timestamp: { type: 'string', format: 'date-time' },
-              requestId: { type: 'string' },
-            },
-          },
         },
       },
     }),

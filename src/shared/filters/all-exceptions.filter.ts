@@ -8,36 +8,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ErrorCode, ErrorCodeToHttpStatus } from '../constants';
-
-/**
- * API Error interface following Section 11.3
- */
-export interface ApiError {
-  code: string;
-  message: string;
-  messageKey?: string;
-  details?: ErrorDetail[];
-  timestamp: string;
-  path: string;
-  requestId: string;
-}
-
-export interface ErrorDetail {
-  field: string;
-  message: string;
-  messageKey?: string;
-  code: string;
-  value?: unknown;
-  constraints?: Record<string, unknown>;
-}
-
-/**
- * Error Response interface following Section 11.1
- */
-export interface ErrorResponse {
-  success: false;
-  error: ApiError;
-}
+import type { ErrorDetail, ErrorResponse } from '../dtos/response.dto';
 
 /**
  * Global Exception Filter
