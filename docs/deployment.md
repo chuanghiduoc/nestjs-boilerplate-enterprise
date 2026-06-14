@@ -50,43 +50,51 @@ docker build -t nestjs-app:v1.0.0 .
 
 ### Dockerfile
 
+The repository ships a production-ready multi-stage `Dockerfile`. Key points:
+
 ```dockerfile
-# Multi-stage build
-FROM node:20-alpine AS builder
-
+# Stage 1: dependencies (Prisma client is generated via postinstall)
+FROM node:20-alpine AS deps
 WORKDIR /app
-
-# Install dependencies
+RUN apk add --no-cache openssl            # required by Prisma's engine
 COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+COPY prisma ./prisma                       # schema must be present for "prisma generate"
+RUN yarn install --frozen-lockfile --production=false
 
-# Build application
+# Stage 2: builder (nest-cli bundles i18n/email assets into dist)
+FROM node:20-alpine AS builder
+WORKDIR /app
+RUN apk add --no-cache openssl
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN yarn build
+RUN yarn install --frozen-lockfile --production=true && yarn cache clean
 
-# Production stage
-FROM node:20-alpine AS production
-
+# Stage 3: runner (non-root, runtime assets already inside dist)
+FROM node:20-alpine AS runner
 WORKDIR /app
-
-# Copy built files
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
-
-# Set environment
 ENV NODE_ENV=production
 ENV PORT=3000
+RUN apk add --no-cache openssl
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nestjs
+COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nestjs:nodejs /app/package.json ./package.json
+RUN mkdir -p /app/uploads && chown nestjs:nodejs /app/uploads   # local storage driver
 
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+# Health check — use 127.0.0.1 (localhost may resolve to IPv6 ::1, but the
+# server binds to IPv4 0.0.0.0). The probe targets the versioned liveness route.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/v1/health/live || exit 1
 
-# Start application
+USER nestjs
 CMD ["node", "dist/main.js"]
 ```
+
+> The package manager is pinned (`"packageManager": "yarn@1.22.22"`) so Corepack
+> always uses Yarn Classic — keep the committed `yarn.lock` in that format.
 
 ### Docker Compose (Production)
 
@@ -103,14 +111,15 @@ services:
       - '3000:3000'
     environment:
       - NODE_ENV=production
-      - DATABASE_HOST=postgres
-      - DATABASE_PORT=5432
-      - DATABASE_NAME=${DATABASE_NAME}
-      - DATABASE_USER=${DATABASE_USER}
-      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
     depends_on:
       - postgres
       - redis
@@ -123,11 +132,11 @@ services:
           memory: 1G
 
   postgres:
-    image: postgres:14-alpine
+    image: postgres:16-alpine
     environment:
-      - POSTGRES_DB=${DATABASE_NAME}
-      - POSTGRES_USER=${DATABASE_USER}
-      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - POSTGRES_DB=${DB_DATABASE}
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -215,19 +224,19 @@ spec:
               memory: '1Gi'
           livenessProbe:
             httpGet:
-              path: /health
+              path: /api/v1/health/live
               port: 3000
             initialDelaySeconds: 30
             periodSeconds: 10
           readinessProbe:
             httpGet:
-              path: /health/ready
+              path: /api/v1/health/ready
               port: 3000
             initialDelaySeconds: 5
             periodSeconds: 5
           startupProbe:
             httpGet:
-              path: /health/startup
+              path: /api/v1/health/startup
               port: 3000
             failureThreshold: 30
             periodSeconds: 10
@@ -291,9 +300,10 @@ data:
   NODE_ENV: 'production'
   PORT: '3000'
   API_PREFIX: 'api'
-  API_VERSION: 'v1'
-  DATABASE_HOST: 'postgres-service'
-  DATABASE_PORT: '5432'
+  # Numeric only — URI versioning prepends "v" (1 -> /api/v1)
+  API_VERSION: '1'
+  DB_HOST: 'postgres-service'
+  DB_PORT: '5432'
   REDIS_HOST: 'redis-service'
   REDIS_PORT: '6379'
 ```
@@ -308,9 +318,9 @@ metadata:
   name: nestjs-app-secrets
 type: Opaque
 stringData:
-  DATABASE_NAME: 'app_db'
-  DATABASE_USER: 'postgres'
-  DATABASE_PASSWORD: 'your-secure-password'
+  DB_DATABASE: 'app_db'
+  DB_USERNAME: 'postgres'
+  DB_PASSWORD: 'your-secure-password'
   JWT_SECRET: 'your-jwt-secret'
   JWT_REFRESH_SECRET: 'your-refresh-secret'
 ```
@@ -457,7 +467,8 @@ NODE_ENV=production
 PORT=3000
 APP_NAME=nestjs-app
 API_PREFIX=api
-API_VERSION=v1
+# Numeric only — URI versioning prepends "v" (1 -> /api/v1)
+API_VERSION=1
 
 # Security
 JWT_SECRET=generate-strong-random-string-minimum-32-chars
@@ -467,12 +478,13 @@ JWT_REFRESH_EXPIRES_IN=7d
 CORS_ORIGINS=https://app.example.com,https://admin.example.com
 
 # Database
-DATABASE_HOST=postgres.example.com
-DATABASE_PORT=5432
-DATABASE_NAME=app_production
-DATABASE_USER=app_user
-DATABASE_PASSWORD=secure-password
-DATABASE_SSL=true
+DB_TYPE=postgres
+DB_HOST=postgres.example.com
+DB_PORT=5432
+DB_DATABASE=app_production
+DB_USERNAME=app_user
+DB_PASSWORD=secure-password
+DB_SSL=true
 
 # Redis
 REDIS_HOST=redis.example.com
@@ -510,9 +522,10 @@ yarn migration:run
 
 # Or in Docker
 docker run --rm \
-  -e DATABASE_HOST=... \
-  -e DATABASE_USER=... \
-  -e DATABASE_PASSWORD=... \
+  -e DB_HOST=... \
+  -e DB_USERNAME=... \
+  -e DB_PASSWORD=... \
+  -e DB_DATABASE=... \
   nestjs-app:latest \
   yarn migration:run
 ```
@@ -545,15 +558,16 @@ spec:
 
 ### Health Endpoints
 
-| Endpoint          | Purpose                                     |
-| ----------------- | ------------------------------------------- |
-| `/health`         | Liveness probe - is app running?            |
-| `/health/ready`   | Readiness probe - is app ready for traffic? |
-| `/health/startup` | Startup probe - has app finished starting?  |
+| Endpoint                 | Purpose                                     |
+| ------------------------ | ------------------------------------------- |
+| `/api/v1/health/live`    | Liveness probe - is app running?            |
+| `/api/v1/health/ready`   | Readiness probe - is app ready for traffic? |
+| `/api/v1/health/startup` | Startup probe - has app finished starting?  |
+| `/api/v1/health/deep`    | Deep check - detailed dependency status     |
 
 ### Metrics
 
-Prometheus metrics available at `/metrics`:
+Prometheus metrics available at `/api/v1/metrics`:
 
 - `http_requests_total` - Total HTTP requests
 - `http_request_duration_seconds` - Request duration

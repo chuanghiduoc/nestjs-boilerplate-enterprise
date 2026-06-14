@@ -94,11 +94,12 @@ yarn cleanup:db
 yarn add typeorm @nestjs/typeorm pg
 
 # Configure .env
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_NAME=app_db
-DATABASE_USER=postgres
-DATABASE_PASSWORD=postgres
+DB_TYPE=postgres
+DB_HOST=localhost
+DB_PORT=5432
+DB_DATABASE=app_db
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
 ```
 
 ### Entity Definition

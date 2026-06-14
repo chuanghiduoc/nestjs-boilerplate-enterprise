@@ -57,6 +57,11 @@ cd nestjs-boilerplate-enterprise
 yarn install
 ```
 
+> The project pins the package manager (`"packageManager": "yarn@1.22.22"`),
+> so Corepack uses Yarn Classic and the committed `yarn.lock` stays in v1
+> format. The Prisma client is generated automatically via a `postinstall`
+> hook (`prisma generate`).
+
 ### 3. Run Setup Wizard
 
 Interactive wizard to customize your project:
@@ -90,11 +95,12 @@ Edit the `.env` file with your configuration.
 createdb app_db
 
 # 2. Configure .env
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_NAME=app_db
-DATABASE_USER=postgres
-DATABASE_PASSWORD=your_password
+DB_TYPE=postgres
+DB_HOST=localhost
+DB_PORT=5432
+DB_DATABASE=app_db
+DB_USERNAME=postgres
+DB_PASSWORD=your_password
 
 # 3. Run migrations
 yarn migration:run
@@ -169,18 +175,21 @@ NODE_ENV=development
 PORT=3000
 APP_NAME=nestjs-app
 API_PREFIX=api
-API_VERSION=v1
+# Numeric only — URI versioning prepends "v" (1 -> /api/v1)
+API_VERSION=1
 
 # ============================================
 # DATABASE
 # ============================================
 # TypeORM/Prisma (PostgreSQL)
 DB_TYPE=postgres
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_NAME=app_db
-DATABASE_USER=postgres
-DATABASE_PASSWORD=postgres
+DB_HOST=localhost
+DB_PORT=5432
+DB_DATABASE=app_db
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+# DB_ORM=prisma  # optional: switch SQL ORM to Prisma (defaults to typeorm)
+# DATABASE_URL is used by Prisma only
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app_db
 
 # Mongoose (MongoDB)
@@ -295,17 +304,18 @@ docker-compose -f docker-compose.prod.yml up -d
 Verify the application is running:
 
 ```bash
-curl http://localhost:3000/health
+curl http://localhost:3000/api/v1/health/live
 ```
 
-Response:
+Response (wrapped in the standard envelope):
 
 ```json
 {
-  "status": "ok",
-  "info": {
-    "database": { "status": "up" },
-    "memory": { "status": "up" }
+  "success": true,
+  "data": {
+    "status": "healthy",
+    "timestamp": "2026-01-15T10:30:00.000Z",
+    "uptime": 123.45
   }
 }
 ```
@@ -370,10 +380,10 @@ curl http://localhost:3000/api/v1/users/me \
 
 ### 5. Swagger Documentation
 
-Open your browser and navigate to:
+Open your browser and navigate to (available in non-production environments):
 
 ```
-http://localhost:3000/api/docs
+http://localhost:3000/docs
 ```
 
 ---

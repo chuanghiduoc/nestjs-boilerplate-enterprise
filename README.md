@@ -131,7 +131,9 @@ yarn migration:run
 yarn start:dev
 ```
 
-Application will be available at `http://localhost:3000`
+Application will be available at `http://localhost:3000` (API base path: `http://localhost:3000/api/v1`).
+
+Interactive Swagger docs (non-production only): `http://localhost:3000/docs`
 
 ### Using Docker
 
@@ -312,6 +314,7 @@ modules/{feature}/
 | [Module Generator](./docs/module-generator.md) | Creating modules with Hygen             |
 | [API Guide](./docs/api-guide.md)               | REST, GraphQL, WebSocket APIs           |
 | [Deployment](./docs/deployment.md)             | Docker, Kubernetes, CI/CD               |
+| [Changelog](./CHANGELOG.md)                    | Notable changes and fixes               |
 
 <br/>
 
@@ -445,7 +448,9 @@ Error responses include detailed information:
   "error": {
     "code": "VALIDATION_ERROR",
     "message": "Request validation failed",
-    "details": [{ "field": "email", "message": "must be a valid email" }],
+    "details": [{ "field": "email", "message": "must be a valid email", "code": "isEmail" }],
+    "timestamp": "2026-01-15T10:30:00.000Z",
+    "path": "/api/v1/users",
     "requestId": "req_abc123"
   }
 }

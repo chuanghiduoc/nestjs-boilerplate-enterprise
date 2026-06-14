@@ -47,7 +47,9 @@ All responses follow a consistent envelope format:
   "error": {
     "code": "VALIDATION_ERROR",
     "message": "Request validation failed",
-    "details": [{ "field": "email", "message": "must be a valid email" }],
+    "details": [{ "field": "email", "message": "must be a valid email", "code": "isEmail" }],
+    "timestamp": "2026-01-15T10:30:00.000Z",
+    "path": "/api/v1/users",
     "requestId": "req_abc123"
   }
 }
@@ -63,7 +65,7 @@ All responses follow a consistent envelope format:
     "pagination": {
       "page": 1,
       "limit": 20,
-      "total": 150,
+      "totalItems": 150,
       "totalPages": 8,
       "hasNextPage": true,
       "hasPrevPage": false
@@ -235,9 +237,10 @@ curl -X PATCH http://localhost:3000/api/v1/users/550e8400-e29b-41d4-a716-4466554
 
 | Method | Endpoint          | Description     | Auth |
 | ------ | ----------------- | --------------- | ---- |
-| GET    | `/health`         | Liveness probe  | No   |
+| GET    | `/health/live`    | Liveness probe  | No   |
 | GET    | `/health/ready`   | Readiness probe | No   |
 | GET    | `/health/startup` | Startup probe   | No   |
+| GET    | `/health/deep`    | Deep dependency check | No |
 
 ---
 
@@ -541,10 +544,10 @@ X-RateLimit-Reset: 1640000000
 
 ## Swagger Documentation
 
-Interactive API documentation is available at:
+Interactive API documentation is available at (non-production environments only):
 
 ```
-http://localhost:3000/api/docs
+http://localhost:3000/docs
 ```
 
 Features:
