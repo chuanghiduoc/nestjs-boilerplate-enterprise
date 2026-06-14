@@ -16,8 +16,9 @@ export const appConfig = registerAs('app', () => ({
   port: parseInt(process.env.APP_PORT || '3000', 10),
 
   // API
+  // Numeric version only — URI versioning prepends "v" (e.g. "1" -> /api/v1).
   apiPrefix: process.env.API_PREFIX || 'api',
-  apiVersion: process.env.API_VERSION || 'v1',
+  apiVersion: process.env.API_VERSION || '1',
 
   // Security
   corsOrigins: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],

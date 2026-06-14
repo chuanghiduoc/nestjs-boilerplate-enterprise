@@ -1,12 +1,16 @@
 import { type TestingModule, Test } from '@nestjs/testing';
-import { type INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
+import type { INestApplication } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { App } from 'supertest/types';
 import { AppModule } from '../../src/app.module';
+import { configureApp, type AppConfig } from '../../src/config';
 
 /**
  * Test Application Factory
  *
- * Creates a NestJS application instance for E2E testing.
+ * Creates a NestJS application configured identically to production so that
+ * E2E tests exercise the real request pipeline (versioning, prefix, global
+ * pipes, interceptors and exception filters).
  */
 export async function createTestApp(): Promise<INestApplication<App>> {
   const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -15,25 +19,11 @@ export async function createTestApp(): Promise<INestApplication<App>> {
 
   const app = moduleFixture.createNestApplication();
 
-  // Apply the same configuration as production
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidNonWhitelisted: true,
-      transformOptions: {
-        enableImplicitConversion: false,
-      },
-    }),
-  );
+  const configService = app.get(ConfigService);
+  const appConfig = configService.get<AppConfig>('app');
 
-  // Match production API prefix and versioning
-  app.setGlobalPrefix('api');
-  app.enableVersioning({
-    type: VersioningType.URI,
-    defaultVersion: '1',
-  });
-  app.enableCors();
+  // Apply the exact same configuration as the production bootstrap.
+  configureApp(app, appConfig);
 
   await app.init();
 

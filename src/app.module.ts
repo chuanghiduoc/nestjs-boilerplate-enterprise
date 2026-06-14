@@ -127,6 +127,7 @@ export class AppModule implements NestModule {
    * 3. Compression (when added)
    */
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(CorrelationIdMiddleware).forRoutes('*');
+    // Express v5 (NestJS 11) requires a named wildcard to match all routes.
+    consumer.apply(CorrelationIdMiddleware).forRoutes('{*splat}');
   }
 }

@@ -17,11 +17,12 @@ describe('Health Endpoints (e2e)', () => {
   });
 
   describe('GET /api/v1/health/live', () => {
-    it('should return liveness status', async () => {
+    it('should return liveness status wrapped in the standard envelope', async () => {
       const response = await req.get('/api/v1/health/live');
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('status', 'healthy');
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data.status', 'healthy');
     });
   });
 
@@ -31,7 +32,13 @@ describe('Health Endpoints (e2e)', () => {
 
       // May return 200 or 503 depending on service availability
       expect([200, 503]).toContain(response.status);
-      expect(response.body).toHaveProperty('status');
+
+      if (response.status === 200) {
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data.status');
+      } else {
+        expect(response.body).toHaveProperty('success', false);
+      }
     });
   });
 
@@ -41,8 +48,14 @@ describe('Health Endpoints (e2e)', () => {
 
       // May return 200 or 503 depending on startup completion status
       expect([200, 503]).toContain(response.status);
-      expect(response.body).toHaveProperty('status');
-      expect(response.body).toHaveProperty('startupComplete');
+
+      if (response.status === 200) {
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data.status');
+        expect(response.body).toHaveProperty('data.startupComplete');
+      } else {
+        expect(response.body).toHaveProperty('success', false);
+      }
     });
   });
 });

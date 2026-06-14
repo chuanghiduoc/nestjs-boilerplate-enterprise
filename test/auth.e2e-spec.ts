@@ -24,7 +24,7 @@ describe('Auth Endpoints (e2e)', () => {
       });
 
       expect(response.status).toBe(401);
-      assertErrorResponse(response.body as Record<string, unknown>, 401);
+      assertErrorResponse(response.body as Record<string, unknown>);
     });
 
     it('should reject missing email', async () => {
@@ -80,6 +80,18 @@ describe('Auth Endpoints (e2e)', () => {
       });
 
       expect(response.status).toBe(400);
+    });
+
+    it('should register a new user and return an unwrapped data envelope', async () => {
+      const user = generateTestUser();
+      const response = await req.post('/api/v1/auth/register').send(user);
+
+      expect(response.status).toBe(201);
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data.userId');
+      expect(response.body).toHaveProperty('data.email', user.email);
+      // Guard against the double-nesting regression (data.data).
+      expect(response.body).not.toHaveProperty('data.data');
     });
   });
 

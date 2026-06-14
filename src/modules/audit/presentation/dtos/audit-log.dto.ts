@@ -44,26 +44,3 @@ export class AuditLogResponseDto {
   @ApiProperty({ description: 'When the action occurred' })
   createdAt!: Date;
 }
-
-/**
- * Audit Log List Response DTO
- */
-export class AuditLogListResponseDto {
-  @ApiProperty({ description: 'Audit logs', type: [AuditLogResponseDto] })
-  data!: AuditLogResponseDto[];
-
-  @ApiProperty({ description: 'Total count' })
-  total!: number;
-
-  @ApiProperty({ description: 'Current page' })
-  page!: number;
-
-  @ApiProperty({ description: 'Items per page' })
-  limit!: number;
-
-  @ApiProperty({ description: 'Has next page' })
-  hasNextPage!: boolean;
-
-  @ApiProperty({ description: 'Has previous page' })
-  hasPrevPage!: boolean;
-}

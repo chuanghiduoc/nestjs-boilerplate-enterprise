@@ -4,6 +4,7 @@ export * from './jwt.config';
 export * from './cache.config';
 export * from './throttle.config';
 export * from './swagger.config';
+export * from './configure-app';
 export * from './security.config';
 export * from './storage.config';
 export * from './email.config';

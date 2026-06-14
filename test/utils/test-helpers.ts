@@ -145,9 +145,18 @@ export function assertPaginatedResponse(response: Record<string, unknown>): void
 }
 
 /**
- * Assert error response structure
+ * Assert error response structure.
+ *
+ * Errors follow the standard envelope: { success: false, error: { code, message, ... } }
  */
-export function assertErrorResponse(response: Record<string, unknown>, statusCode: number): void {
-  expect(response).toHaveProperty('statusCode', statusCode);
-  expect(response).toHaveProperty('message');
+export function assertErrorResponse(response: Record<string, unknown>): void {
+  expect(response).toHaveProperty('success', false);
+  expect(response).toHaveProperty('error');
+
+  const error = response.error as Record<string, unknown>;
+  expect(error).toHaveProperty('code');
+  expect(error).toHaveProperty('message');
+  expect(error).toHaveProperty('timestamp');
+  expect(error).toHaveProperty('path');
+  expect(error).toHaveProperty('requestId');
 }

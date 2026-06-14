@@ -17,11 +17,12 @@ describe('App (e2e)', () => {
   });
 
   describe('GET /api/v1', () => {
-    it('should return welcome message', async () => {
+    it('should return welcome message wrapped in the standard envelope', async () => {
       const response = await req.get('/api/v1');
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('message');
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data.message');
     });
   });
 
@@ -41,11 +42,13 @@ describe('App (e2e)', () => {
       expect(response.status).toBe(404);
     });
 
-    it('should return proper error format', async () => {
+    it('should return proper error envelope', async () => {
       const response = await req.get('/api/v1/unknown-route-12345');
 
-      expect(response.body).toHaveProperty('statusCode', 404);
-      expect(response.body).toHaveProperty('message');
+      expect(response.body).toHaveProperty('success', false);
+      expect(response.body).toHaveProperty('error.code');
+      expect(response.body).toHaveProperty('error.message');
+      expect(response.body).toHaveProperty('error.path', '/api/v1/unknown-route-12345');
     });
   });
 

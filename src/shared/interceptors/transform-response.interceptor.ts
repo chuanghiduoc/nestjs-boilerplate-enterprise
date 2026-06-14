@@ -41,20 +41,22 @@ export class TransformResponseInterceptor<T> implements NestInterceptor<T, ApiRe
           return data as ApiResponse<T>;
         }
 
-        // Check if response contains pagination meta
-        if (this.hasPaginationData(data)) {
-          const { data: items, meta } = data as {
+        // Controllers return a { data, meta? } envelope. Unwrap it into the
+        // standard response so the payload is not double-nested (data.data),
+        // carrying pagination meta through when present.
+        if (this.hasDataEnvelope(data)) {
+          const { data: payload, meta } = data as {
             data: T;
-            meta: ResponseMeta;
+            meta?: ResponseMeta;
           };
           return {
             success: true,
-            data: items,
-            meta,
+            data: payload,
+            ...(meta !== undefined ? { meta } : {}),
           };
         }
 
-        // Wrap simple response
+        // Wrap a raw response value
         return {
           success: true,
           data,
@@ -72,13 +74,7 @@ export class TransformResponseInterceptor<T> implements NestInterceptor<T, ApiRe
     );
   }
 
-  private hasPaginationData(data: unknown): boolean {
-    return (
-      data !== null &&
-      typeof data === 'object' &&
-      'data' in data &&
-      'meta' in data &&
-      typeof (data as { meta: unknown }).meta === 'object'
-    );
+  private hasDataEnvelope(data: unknown): boolean {
+    return data !== null && typeof data === 'object' && 'data' in data;
   }
 }

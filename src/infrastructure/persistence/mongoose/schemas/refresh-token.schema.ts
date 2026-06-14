@@ -32,17 +32,16 @@ export const RefreshTokenSchema = createBaseSchema({
   token: {
     type: String,
     required: true,
-    unique: true,
-    index: true,
+    unique: true, // unique already creates the index
   },
   familyId: {
     type: String,
     index: true,
   },
+  // Indexed via the TTL index declared below (RefreshTokenSchema.index).
   expiresAt: {
     type: Date,
     required: true,
-    index: true,
   },
   isRevoked: {
     type: Boolean,

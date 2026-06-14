@@ -24,8 +24,11 @@ import { join } from 'path';
         const isDev = configService.get('app.nodeEnv') !== 'production';
 
         return {
-          // Code-first approach
-          autoSchemaFile: join(process.cwd(), 'src/generated/schema.gql'),
+          // Code-first approach.
+          // In development the schema is written to src/generated for tooling
+          // (e.g. frontend codegen). In production it is generated in memory —
+          // the runtime image is read-only and does not ship the src/ tree.
+          autoSchemaFile: isDev ? join(process.cwd(), 'src/generated/schema.gql') : true,
           sortSchema: true,
 
           // Development settings

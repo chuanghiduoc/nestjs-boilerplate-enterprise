@@ -202,14 +202,15 @@ export class FileController {
    * Download a file
    * GET /files/download/:path
    */
-  @Get('download/*')
+  @Get('download/*path')
   @Auth({ permissions: ['files:read'] })
   @ApiOperation({ summary: 'Download a file' })
   @ApiBearerAuth()
   async downloadFile(
-    @Param('0') filePath: string,
+    @Param('path') pathParam: string | string[],
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
+    const filePath = this.normalizeWildcardPath(pathParam);
     const exists = await this.storageService.exists(filePath);
     if (!exists) {
       throw new NotFoundException('File not found');
@@ -230,12 +231,15 @@ export class FileController {
    * Get file metadata
    * GET /files/metadata/:path
    */
-  @Get('metadata/*')
+  @Get('metadata/*path')
   @Auth({ permissions: ['files:read'] })
   @ApiOperation({ summary: 'Get file metadata' })
   @ApiBearerAuth()
   @ApiStandardResponses({ includeNotFound: true })
-  async getFileMetadata(@Param('0') filePath: string): Promise<{ data: FileResponseDto }> {
+  async getFileMetadata(
+    @Param('path') pathParam: string | string[],
+  ): Promise<{ data: FileResponseDto }> {
+    const filePath = this.normalizeWildcardPath(pathParam);
     const metadata = await this.storageService.getMetadata(filePath);
 
     if (!metadata) {
@@ -315,6 +319,16 @@ export class FileController {
     return {
       data: { deleted: dto.paths.length },
     };
+  }
+
+  /**
+   * Normalize an Express 5 wildcard (`*path`) parameter into a file path.
+   *
+   * path-to-regexp v8 captures wildcard segments as an array, so a request for
+   * `download/a/b/c.png` yields `['a', 'b', 'c.png']` which we rejoin with "/".
+   */
+  private normalizeWildcardPath(pathParam: string | string[]): string {
+    return Array.isArray(pathParam) ? pathParam.join('/') : pathParam;
   }
 
   /**

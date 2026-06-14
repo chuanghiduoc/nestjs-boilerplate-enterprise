@@ -51,17 +51,27 @@ import type { I18nConfig } from '@config/i18n.config';
           fallbacks[`${lang}-*`] = lang;
         }
 
+        const isProduction = process.env.NODE_ENV === 'production';
+
         return {
           fallbackLanguage: i18nCfg?.fallbackLanguage || 'en',
           fallbacks,
           loaderOptions: {
-            path: path.join(
-              process.cwd(),
-              i18nCfg?.translationsPath || 'src/infrastructure/i18n/translations',
-            ),
-            watch: process.env.NODE_ENV !== 'production',
+            // Translations ship alongside the compiled output (see nest-cli
+            // assets), so resolve relative to this module's directory. This
+            // works both in development (ts-node/ts-jest -> src) and in the
+            // production build (dist).
+            path: path.join(__dirname, 'translations'),
+            watch: !isProduction,
           },
-          typesOutputPath: path.join(process.cwd(), 'src/generated/i18n.generated.ts'),
+          // Type generation is a development-only convenience. The production
+          // image does not ship the src/ tree, so attempting to write generated
+          // types there would fail.
+          ...(isProduction
+            ? {}
+            : {
+                typesOutputPath: path.join(process.cwd(), 'src/generated/i18n.generated.ts'),
+              }),
         };
       },
       resolvers: [

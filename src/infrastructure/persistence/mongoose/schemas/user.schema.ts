@@ -37,10 +37,9 @@ export const UserSchema = createBaseSchema({
   email: {
     type: String,
     required: true,
-    unique: true,
+    unique: true, // unique already creates the index
     lowercase: true,
     trim: true,
-    index: true,
   },
   passwordHash: {
     type: String,
