@@ -51,7 +51,7 @@ import type { I18nConfig } from '@config/i18n.config';
           fallbacks[`${lang}-*`] = lang;
         }
 
-        const isProduction = process.env.NODE_ENV === 'production';
+        const isDevelopment = process.env.NODE_ENV === 'development';
 
         return {
           fallbackLanguage: i18nCfg?.fallbackLanguage || 'en',
@@ -62,16 +62,16 @@ import type { I18nConfig } from '@config/i18n.config';
             // works both in development (ts-node/ts-jest -> src) and in the
             // production build (dist).
             path: path.join(__dirname, 'translations'),
-            watch: !isProduction,
+            watch: isDevelopment,
           },
-          // Type generation is a development-only convenience. The production
-          // image does not ship the src/ tree, so attempting to write generated
-          // types there would fail.
-          ...(isProduction
-            ? {}
-            : {
+          // Type generation is a development-only convenience. Deployable
+          // images (production, staging, test, etc.) do not ship a writable
+          // src/ tree or the TypeScript compiler.
+          ...(isDevelopment
+            ? {
                 typesOutputPath: path.join(process.cwd(), 'src/generated/i18n.generated.ts'),
-              }),
+              }
+            : {}),
         };
       },
       resolvers: [

@@ -4,7 +4,7 @@
  *
  * Interactive CLI to customize the boilerplate by removing unused features.
  *
- * Usage: yarn setup
+ * Usage: pnpm setup
  */
 
 import inquirer from 'inquirer';
@@ -311,7 +311,7 @@ async function main() {
     const uniqueDeps = [...new Set(depsToRemove)].filter(Boolean);
     if (uniqueDeps.length > 0) {
       try {
-        execSync(`yarn remove ${uniqueDeps.join(' ')} 2>/dev/null || true`, {
+        execSync(`pnpm remove ${uniqueDeps.join(' ')} 2>/dev/null || true`, {
           cwd: ROOT,
           stdio: 'inherit',
         });
@@ -329,11 +329,11 @@ async function main() {
   console.log('╚══════════════════════════════════════════════════════════════╝');
   console.log('\n');
   log.info('Next steps:');
-  console.log('  1. Run: yarn lint:fix');
-  console.log('  2. Run: yarn build');
+  console.log('  1. Run: pnpm lint:fix');
+  console.log('  2. Run: pnpm build');
   console.log('  3. Update your .env file');
   if (database === 'typeorm') {
-    console.log('  4. Run migrations: yarn migration:run');
+    console.log('  4. Run migrations: pnpm migration:run');
   } else if (database === 'prisma') {
     console.log('  4. Run: npx prisma generate && npx prisma migrate dev');
   } else if (database === 'mongoose') {

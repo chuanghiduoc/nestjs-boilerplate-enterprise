@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import type { Model, Document } from 'mongoose';
+import type { HydratedDocument, Model } from 'mongoose';
 import { REFRESH_TOKEN_MODEL } from '../mongoose.module';
 import type { IRefreshTokenDocument } from '../schemas/refresh-token.schema';
 import type {
@@ -11,7 +11,7 @@ import type {
 /**
  * Refresh Token Document with Mongoose Document interface
  */
-type RefreshTokenDocument = IRefreshTokenDocument & Document;
+type RefreshTokenDocument = HydratedDocument<IRefreshTokenDocument>;
 
 /**
  * Refresh Token Entity for Mongoose responses
@@ -48,7 +48,7 @@ interface RefreshTokenEntity {
 export class MongooseRefreshTokenRepository implements IRefreshTokenRepository {
   constructor(
     @InjectModel(REFRESH_TOKEN_MODEL)
-    private readonly model: Model<RefreshTokenDocument>,
+    private readonly model: Model<IRefreshTokenDocument>,
   ) {}
 
   private toEntity(doc: RefreshTokenDocument): RefreshTokenEntity {
@@ -56,7 +56,7 @@ export class MongooseRefreshTokenRepository implements IRefreshTokenRepository {
     const isExpired = doc.expiresAt <= now;
     const isRevoked = doc.isRevoked;
     return {
-      id: doc._id.toString(),
+      id: doc._id,
       userId: doc.userId,
       token: doc.token,
       familyId: doc.familyId || '',

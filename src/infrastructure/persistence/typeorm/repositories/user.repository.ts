@@ -14,6 +14,7 @@ import type {
 } from '@modules/user/domain/repositories/user.repository.interface';
 import { UserEntity } from '../entities/user.entity';
 import { UserMapper } from '../../mappers/user.mapper';
+import { createTransactionAwareRepository } from '../base/transaction-context.typeorm';
 
 /**
  * TypeORM User Repository Implementation
@@ -25,15 +26,30 @@ import { UserMapper } from '../../mappers/user.mapper';
  */
 @Injectable()
 export class TypeOrmUserRepository implements IUserRepository {
+  private static readonly SORTABLE_FIELDS = new Set([
+    'id',
+    'email',
+    'firstName',
+    'lastName',
+    'status',
+    'emailVerified',
+    'createdAt',
+    'updatedAt',
+  ]);
+
+  private readonly repository: Repository<UserEntity>;
+
   constructor(
     @InjectRepository(UserEntity)
-    private readonly repository: Repository<UserEntity>,
-  ) {}
+    repository: Repository<UserEntity>,
+  ) {
+    this.repository = createTransactionAwareRepository(repository);
+  }
 
   async findById(id: string): Promise<User | null> {
     const entity = await this.repository.findOne({
       where: { id },
-      relations: ['roles'],
+      relations: { roles: true },
     });
     return entity ? UserMapper.toDomain(entity) : null;
   }
@@ -42,7 +58,7 @@ export class TypeOrmUserRepository implements IUserRepository {
     const where = this.buildWhereClause(criteria);
     const entity = await this.repository.findOne({
       where,
-      relations: ['roles'],
+      relations: { roles: true },
     });
     return entity ? UserMapper.toDomain(entity) : null;
   }
@@ -57,12 +73,12 @@ export class TypeOrmUserRepository implements IUserRepository {
     const limit = pagination?.limit || 20;
     const skip = (page - 1) * limit;
 
-    const orderField = sort?.field || 'createdAt';
+    const orderField = this.resolveSortField(sort?.field);
     const orderDirection = sort?.order || 'DESC';
 
     const [entities, total] = await this.repository.findAndCount({
       where,
-      relations: ['roles'],
+      relations: { roles: true },
       skip,
       take: limit,
       order: { [orderField]: orderDirection },
@@ -105,7 +121,7 @@ export class TypeOrmUserRepository implements IUserRepository {
   async findByEmail(email: string, tenantId: string): Promise<User | null> {
     const entity = await this.repository.findOne({
       where: { email: email.toLowerCase(), tenantId },
-      relations: ['roles'],
+      relations: { roles: true },
     });
     return entity ? UserMapper.toDomain(entity) : null;
   }
@@ -113,7 +129,7 @@ export class TypeOrmUserRepository implements IUserRepository {
   async findByEmailGlobal(email: string): Promise<User | null> {
     const entity = await this.repository.findOne({
       where: { email: email.toLowerCase() },
-      relations: ['roles'],
+      relations: { roles: true },
     });
     return entity ? UserMapper.toDomain(entity) : null;
   }
@@ -127,7 +143,7 @@ export class TypeOrmUserRepository implements IUserRepository {
     const limit = pagination?.limit || 20;
     const skip = (page - 1) * limit;
 
-    const orderField = sort?.field || 'createdAt';
+    const orderField = this.resolveSortField(sort?.field);
     const orderDirection = sort?.order || 'DESC';
 
     const queryBuilder = this.repository
@@ -213,5 +229,9 @@ export class TypeOrmUserRepository implements IUserRepository {
     }
 
     return where;
+  }
+
+  private resolveSortField(field?: string): string {
+    return field && TypeOrmUserRepository.SORTABLE_FIELDS.has(field) ? field : 'createdAt';
   }
 }

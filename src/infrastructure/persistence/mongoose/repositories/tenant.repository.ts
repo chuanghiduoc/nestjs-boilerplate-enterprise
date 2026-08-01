@@ -1,19 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import type { Model, Document } from 'mongoose';
+import type { HydratedDocument, Model } from 'mongoose';
 import { Tenant, TenantStatus } from '@modules/tenant/domain/entities/tenant.entity';
 import type {
   ITenantRepository,
   TenantFilterCriteria,
 } from '@modules/tenant/domain/repositories/tenant.repository.interface';
 import { TENANT_MODEL } from '../mongoose.module';
-import type { ITenantDocument, MongoTenantStatus } from '../schemas/tenant.schema';
+import { MongoTenantStatus, type ITenantDocument } from '../schemas/tenant.schema';
 import { BaseMongooseRepository, type IMongooseMapper } from '../base/base-repository.mongoose';
 
 /**
  * Tenant Document with Mongoose Document interface
  */
-type TenantDocument = ITenantDocument & Document;
+type TenantDocument = HydratedDocument<ITenantDocument>;
 
 /**
  * Tenant Mapper for Mongoose
@@ -40,7 +40,7 @@ class MongooseTenantMapper implements IMongooseMapper<Tenant, TenantDocument> {
   }
 
   toDomain(doc: TenantDocument): Tenant {
-    return Tenant.reconstitute(doc._id.toString(), {
+    return Tenant.reconstitute(doc._id, {
       name: doc.name,
       slug: doc.slug,
       status: this.mapMongoStatusToDomain(doc.status),
@@ -78,14 +78,14 @@ class MongooseTenantMapper implements IMongooseMapper<Tenant, TenantDocument> {
  */
 @Injectable()
 export class MongooseTenantRepository
-  extends BaseMongooseRepository<Tenant, TenantDocument, TenantFilterCriteria>
+  extends BaseMongooseRepository<Tenant, ITenantDocument, TenantFilterCriteria>
   implements ITenantRepository
 {
   private readonly tenantMapper: MongooseTenantMapper;
 
   constructor(
     @InjectModel(TENANT_MODEL)
-    model: Model<TenantDocument>,
+    model: Model<ITenantDocument>,
   ) {
     const mapper = new MongooseTenantMapper();
     super(model, mapper);
@@ -138,7 +138,7 @@ export class MongooseTenantRepository
   async findExpiredTrials(): Promise<Tenant[]> {
     const docs = await this.model
       .find({
-        status: 'TRIAL',
+        status: MongoTenantStatus.TRIAL,
         trialEndsAt: { $lt: new Date() },
       })
       .exec();

@@ -21,7 +21,7 @@ Complete guide for installing and using NestJS Enterprise Boilerplate.
 | Software | Version     | Installation                        |
 | -------- | ----------- | ----------------------------------- |
 | Node.js  | >= 20.x LTS | [nodejs.org](https://nodejs.org/)   |
-| Yarn     | >= 1.22.x   | `npm install -g yarn`               |
+| pnpm     | >= 11.0.0   | `corepack enable`                   |
 | Git      | Latest      | [git-scm.com](https://git-scm.com/) |
 
 ### Database (choose one)
@@ -54,11 +54,11 @@ cd nestjs-boilerplate-enterprise
 ### 2. Install Dependencies
 
 ```bash
-yarn install
+pnpm install
 ```
 
-> The project pins the package manager (`"packageManager": "yarn@1.22.22"`),
-> so Corepack uses Yarn Classic and the committed `yarn.lock` stays in v1
+> The project pins the package manager (`"packageManager": "pnpm@11.18.0"`),
+> so Corepack uses pnpm and the committed `pnpm-lock.yaml` stays reproducible.
 > format. The Prisma client is generated automatically via a `postinstall`
 > hook (`prisma generate`).
 
@@ -67,7 +67,7 @@ yarn install
 Interactive wizard to customize your project:
 
 ```bash
-yarn setup
+pnpm setup
 ```
 
 The wizard will ask you to choose:
@@ -103,10 +103,10 @@ DB_USERNAME=postgres
 DB_PASSWORD=your_password
 
 # 3. Run migrations
-yarn migration:run
+pnpm migration:run
 
 # 4. (Optional) Seed data
-yarn db:seed
+pnpm db:seed
 ```
 
 ### Using PostgreSQL (Prisma)
@@ -147,10 +147,10 @@ Fastest way to setup development environment:
 docker-compose up -d
 
 # Run migrations
-yarn migration:run
+pnpm migration:run
 
 # Start application
-yarn start:dev
+pnpm start:dev
 ```
 
 **docker-compose.yml** includes:
@@ -269,20 +269,20 @@ Configuration is organized in `src/config/`:
 
 ```bash
 # With hot-reload
-yarn start:dev
+pnpm start:dev
 
 # With debugger (attach VS Code)
-yarn start:debug
+pnpm start:debug
 ```
 
 ### Production Mode
 
 ```bash
 # Build
-yarn build
+pnpm build
 
 # Start
-yarn start:prod
+pnpm start:prod
 ```
 
 ### Docker Mode
@@ -425,13 +425,13 @@ psql -h localhost -U postgres -d app_db
 
 ```bash
 # View migration status
-yarn migration:show
+pnpm migration:show
 
 # Revert last migration
-yarn migration:revert
+pnpm migration:revert
 
 # Generate new migration
-yarn migration:generate
+pnpm migration:generate
 ```
 
 ### Redis Connection Failed
@@ -449,5 +449,5 @@ redis-cli ping
 ```bash
 # Clear cache and rebuild
 rm -rf dist node_modules/.cache
-yarn build
+pnpm build
 ```

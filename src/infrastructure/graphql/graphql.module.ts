@@ -21,19 +21,18 @@ import { join } from 'path';
       driver: ApolloDriver,
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
-        const isDev = configService.get('app.nodeEnv') !== 'production';
+        const isDevelopment = configService.get('app.nodeEnv') === 'development';
 
         return {
           // Code-first approach.
           // In development the schema is written to src/generated for tooling
           // (e.g. frontend codegen). In production it is generated in memory —
           // the runtime image is read-only and does not ship the src/ tree.
-          autoSchemaFile: isDev ? join(process.cwd(), 'src/generated/schema.gql') : true,
+          autoSchemaFile: isDevelopment ? join(process.cwd(), 'src/generated/schema.gql') : true,
           sortSchema: true,
 
           // Development settings
-          playground: isDev,
-          introspection: isDev,
+          introspection: isDevelopment,
 
           // Context builder
           context: ({ req, res }: { req: Request; res: Response }) => ({
@@ -44,14 +43,13 @@ import { join } from 'path';
           // Format errors
           formatError: (error) => {
             const originalError = error.extensions?.originalError as
-              | Record<string, unknown>
-              | undefined;
+              Record<string, unknown> | undefined;
 
             return {
               message: error.message,
               code: error.extensions?.code || 'INTERNAL_SERVER_ERROR',
               path: error.path,
-              ...(isDev && {
+              ...(isDevelopment && {
                 extensions: {
                   stacktrace: error.extensions?.stacktrace,
                   originalError,

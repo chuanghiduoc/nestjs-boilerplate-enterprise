@@ -5,9 +5,9 @@
  * Remove specific features without the full wizard.
  *
  * Usage:
- *   yarn cleanup:db        # Remove unused database adapters
- *   yarn cleanup:auth      # Remove unused OAuth strategies
- *   yarn cleanup:feature   # Remove optional features
+ *   pnpm cleanup:db        # Remove unused database adapters
+ *   pnpm cleanup:auth      # Remove unused OAuth strategies
+ *   pnpm cleanup:feature   # Remove optional features
  */
 
 import inquirer from 'inquirer';
@@ -144,9 +144,9 @@ async function main() {
 
   if (!type || !CLEANUP_OPTIONS[type]) {
     console.log('\nUsage:');
-    console.log('  yarn cleanup:db       Remove unused database adapters');
-    console.log('  yarn cleanup:auth     Remove unused OAuth strategies');
-    console.log('  yarn cleanup:feature  Remove optional features\n');
+    console.log('  pnpm cleanup:db       Remove unused database adapters');
+    console.log('  pnpm cleanup:auth     Remove unused OAuth strategies');
+    console.log('  pnpm cleanup:feature  Remove optional features\n');
     process.exit(1);
   }
 
@@ -224,7 +224,7 @@ async function main() {
     const uniqueDeps = [...new Set(depsToRemove)];
     log.info(`Removing ${uniqueDeps.length} dependencies...`);
     try {
-      execSync(`yarn remove ${uniqueDeps.join(' ')}`, {
+      execSync(`pnpm remove ${uniqueDeps.join(' ')}`, {
         cwd: ROOT,
         stdio: 'inherit',
       });
@@ -235,7 +235,7 @@ async function main() {
 
   console.log('\n');
   log.success('Cleanup complete!');
-  log.info('Run: yarn lint:fix && yarn build');
+  log.info('Run: pnpm lint:fix && pnpm build');
   console.log('\n');
 }
 

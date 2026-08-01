@@ -25,6 +25,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
+    // A raw/streaming handler may already have committed its response. At
+    // that point another JSON error response would only cause
+    // ERR_HTTP_HEADERS_SENT and obscure the original failure.
+    if (response.headersSent) {
+      this.logger.error(
+        `Exception after response was sent for ${request.method} ${request.url}`,
+        exception instanceof Error ? exception.stack : String(exception),
+      );
+      return;
+    }
+
     const requestId = (request.headers['x-request-id'] as string) || this.generateRequestId();
     const timestamp = new Date().toISOString();
     const path = request.url;

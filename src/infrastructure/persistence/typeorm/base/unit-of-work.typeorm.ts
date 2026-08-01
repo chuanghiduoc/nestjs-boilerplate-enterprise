@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Scope } from '@nestjs/common';
 import { DataSource, type QueryRunner } from 'typeorm';
 import type {
   IUnitOfWork,
@@ -7,6 +7,7 @@ import type {
 } from '@core/domain/ports/repositories';
 import type { DomainEvent } from '@core/domain/base';
 import { EVENT_BUS, type IEventBus } from '@core/domain/ports/services';
+import { clearTypeOrmTransaction, enterTypeOrmTransaction } from './transaction-context.typeorm';
 
 /**
  * TypeORM Unit of Work Implementation
@@ -16,7 +17,7 @@ import { EVENT_BUS, type IEventBus } from '@core/domain/ports/services';
  *
  * Section 8.5: Transaction Management
  */
-@Injectable()
+@Injectable({ scope: Scope.REQUEST })
 export class TypeOrmUnitOfWork implements IUnitOfWork {
   private queryRunner: QueryRunner | null = null;
   private pendingEvents: DomainEvent[] = [];
@@ -33,10 +34,16 @@ export class TypeOrmUnitOfWork implements IUnitOfWork {
     }
 
     this.queryRunner = this.dataSource.createQueryRunner();
-    await this.queryRunner.connect();
-    await this.queryRunner.startTransaction(this.mapIsolationLevel(options?.isolationLevel));
-
-    this.transactionActive = true;
+    try {
+      await this.queryRunner.connect();
+      await this.queryRunner.startTransaction(this.mapIsolationLevel(options?.isolationLevel));
+      enterTypeOrmTransaction(this.queryRunner.manager);
+      this.transactionActive = true;
+    } catch (error) {
+      await this.queryRunner.release();
+      this.queryRunner = null;
+      throw error;
+    }
   }
 
   async commit(): Promise<void> {
@@ -44,16 +51,24 @@ export class TypeOrmUnitOfWork implements IUnitOfWork {
       throw new Error('No active transaction to commit');
     }
 
+    const events = this.getPendingEvents();
     try {
       await this.queryRunner.commitTransaction();
-
-      // Dispatch domain events after successful commit (Section 6.3)
-      if (this.pendingEvents.length > 0) {
-        await this.eventBus.publishAll(this.pendingEvents);
-        this.clearPendingEvents();
+    } catch (error) {
+      if (this.queryRunner.isTransactionActive) {
+        await this.queryRunner.rollbackTransaction();
       }
+      this.clearPendingEvents();
+      throw error;
     } finally {
       await this.releaseQueryRunner();
+    }
+
+    // The database is committed before integration events are dispatched.
+    // Clear first so a publication failure cannot duplicate events on reuse.
+    this.clearPendingEvents();
+    if (events.length > 0) {
+      await this.eventBus.publishAll(events);
     }
   }
 
@@ -78,7 +93,11 @@ export class TypeOrmUnitOfWork implements IUnitOfWork {
       await this.commit();
       return result;
     } catch (error) {
-      await this.rollback();
+      // commit() may fail while publishing post-commit events, after the
+      // database transaction has already been committed and released.
+      if (this.transactionActive) {
+        await this.rollback();
+      }
       throw error;
     }
   }
@@ -103,21 +122,21 @@ export class TypeOrmUnitOfWork implements IUnitOfWork {
     if (!this.queryRunner || !this.transactionActive) {
       throw new Error('No active transaction for savepoint');
     }
-    await this.queryRunner.query(`SAVEPOINT ${name}`);
+    await this.queryRunner.query(`SAVEPOINT ${this.validateSavepointName(name)}`);
   }
 
   async rollbackToSavepoint(name: string): Promise<void> {
     if (!this.queryRunner || !this.transactionActive) {
       throw new Error('No active transaction for savepoint rollback');
     }
-    await this.queryRunner.query(`ROLLBACK TO SAVEPOINT ${name}`);
+    await this.queryRunner.query(`ROLLBACK TO SAVEPOINT ${this.validateSavepointName(name)}`);
   }
 
   async releaseSavepoint(name: string): Promise<void> {
     if (!this.queryRunner || !this.transactionActive) {
       throw new Error('No active transaction to release savepoint');
     }
-    await this.queryRunner.query(`RELEASE SAVEPOINT ${name}`);
+    await this.queryRunner.query(`RELEASE SAVEPOINT ${this.validateSavepointName(name)}`);
   }
 
   /**
@@ -132,6 +151,7 @@ export class TypeOrmUnitOfWork implements IUnitOfWork {
       await this.queryRunner.release();
       this.queryRunner = null;
       this.transactionActive = false;
+      clearTypeOrmTransaction();
     }
   }
 
@@ -142,5 +162,12 @@ export class TypeOrmUnitOfWork implements IUnitOfWork {
       return undefined;
     }
     return level;
+  }
+
+  private validateSavepointName(name: string): string {
+    if (!/^[A-Za-z_][A-Za-z0-9_]{0,62}$/.test(name)) {
+      throw new Error('Invalid savepoint name');
+    }
+    return name;
   }
 }

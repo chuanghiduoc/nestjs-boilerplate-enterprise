@@ -116,19 +116,19 @@ git clone https://github.com/chuanghiduoc/nestjs-boilerplate-enterprise.git
 cd nestjs-boilerplate-enterprise
 
 # Install dependencies
-yarn install
+pnpm install
 
 # Run interactive setup wizard
-yarn setup
+pnpm setup
 
 # Copy environment file
 cp .env.example .env
 
 # Run database migrations
-yarn migration:run
+pnpm migration:run
 
 # Start development server
-yarn start:dev
+pnpm start:dev
 ```
 
 Application will be available at `http://localhost:3000` (API base path: `http://localhost:3000/api/v1`).
@@ -324,10 +324,10 @@ modules/{feature}/
 <summary><b>Development</b></summary>
 
 ```bash
-yarn start:dev          # Start with hot-reload
-yarn start:debug        # Start with debugger attached
-yarn build              # Build for production
-yarn start:prod         # Run production build
+pnpm start:dev          # Start with hot-reload
+pnpm start:debug        # Start with debugger attached
+pnpm build              # Build for production
+pnpm start:prod         # Run production build
 ```
 
 </details>
@@ -336,9 +336,9 @@ yarn start:prod         # Run production build
 <summary><b>Code Generation</b></summary>
 
 ```bash
-yarn generate:module    # Generate complete DDD module
-yarn generate:entity    # Generate domain entity
-yarn generate:usecase   # Generate use case
+pnpm generate:module    # Generate complete DDD module
+pnpm generate:entity    # Generate domain entity
+pnpm generate:usecase   # Generate use case
 ```
 
 </details>
@@ -347,10 +347,10 @@ yarn generate:usecase   # Generate use case
 <summary><b>Database (TypeORM)</b></summary>
 
 ```bash
-yarn migration:generate # Generate migration from entities
-yarn migration:run      # Run pending migrations
-yarn migration:revert   # Revert last migration
-yarn db:seed            # Seed database
+pnpm migration:generate # Generate migration from entities
+pnpm migration:run      # Run pending migrations
+pnpm migration:revert   # Revert last migration
+pnpm db:seed            # Seed database
 ```
 
 </details>
@@ -370,10 +370,10 @@ npx prisma studio       # Open Prisma Studio
 <summary><b>Testing</b></summary>
 
 ```bash
-yarn test               # Run unit tests
-yarn test:watch         # Run tests in watch mode
-yarn test:cov           # Generate coverage report
-yarn test:e2e           # Run E2E tests
+pnpm test               # Run unit tests
+pnpm test:watch         # Run tests in watch mode
+pnpm test:cov           # Generate coverage report
+pnpm test:e2e           # Run E2E tests
 ```
 
 </details>
@@ -382,10 +382,10 @@ yarn test:e2e           # Run E2E tests
 <summary><b>Code Quality</b></summary>
 
 ```bash
-yarn lint               # ESLint check
-yarn lint:fix           # ESLint fix
-yarn format             # Prettier format
-yarn type-check         # TypeScript check
+pnpm lint               # ESLint check
+pnpm lint:fix           # ESLint fix
+pnpm format             # Prettier format
+pnpm type-check         # TypeScript check
 ```
 
 </details>

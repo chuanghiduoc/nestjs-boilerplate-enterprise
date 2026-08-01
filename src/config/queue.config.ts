@@ -1,5 +1,10 @@
 import { registerAs } from '@nestjs/config';
 
+function parseWebhookTimeout(value: string | undefined): number {
+  const parsed = Number(value ?? 10000);
+  return Number.isSafeInteger(parsed) && parsed >= 1000 && parsed <= 120000 ? parsed : 10000;
+}
+
 /**
  * Queue Configuration
  *
@@ -28,6 +33,14 @@ export const queueConfig = registerAs('queue', () => ({
     },
     removeOnComplete: 100, // Keep last 100 completed jobs
     removeOnFail: 50, // Keep last 50 failed jobs
+  },
+  webhook: {
+    // Empty means public hosts are allowed; private/link-local destinations are always rejected.
+    allowedHosts: (process.env.WEBHOOK_ALLOWED_HOSTS || '')
+      .split(',')
+      .map((host) => host.trim().toLowerCase())
+      .filter(Boolean),
+    timeoutMs: parseWebhookTimeout(process.env.WEBHOOK_TIMEOUT_MS),
   },
 }));
 

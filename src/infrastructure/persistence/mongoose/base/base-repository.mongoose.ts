@@ -1,4 +1,4 @@
-import type { Model, Document } from 'mongoose';
+import type { HydratedDocument, Model } from 'mongoose';
 import type { AggregateRoot } from '@core/domain/base';
 import type {
   IRepository,
@@ -29,12 +29,12 @@ export interface IMongooseMapper<TDomain, TDocument> {
  */
 export abstract class BaseMongooseRepository<
   TAggregate extends AggregateRoot,
-  TDocument extends Document,
+  TSchema extends { _id: string },
   TFilter extends FilterCriteria = FilterCriteria,
 > implements IRepository<TAggregate, string, TFilter> {
   constructor(
-    protected readonly model: Model<TDocument>,
-    protected readonly mapper: IMongooseMapper<TAggregate, TDocument>,
+    protected readonly model: Model<TSchema>,
+    protected readonly mapper: IMongooseMapper<TAggregate, HydratedDocument<TSchema>>,
   ) {}
 
   /**
@@ -105,7 +105,7 @@ export abstract class BaseMongooseRepository<
 
     const existingDoc = await this.model.findById(entity.id).exec();
 
-    let savedDoc: TDocument;
+    let savedDoc: HydratedDocument<TSchema>;
     if (existingDoc) {
       Object.assign(existingDoc, data);
       savedDoc = await existingDoc.save();

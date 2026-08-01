@@ -13,6 +13,7 @@ export default tseslint.config(
       'dist-test/**',
       'node_modules/**',
       'coverage/**',
+      'src/generated/prisma/**',
       '**/*.js',
       '**/*.d.ts',
     ],

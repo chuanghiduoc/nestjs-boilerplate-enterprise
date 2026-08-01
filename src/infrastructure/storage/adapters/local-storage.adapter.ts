@@ -33,8 +33,32 @@ export class LocalStorageAdapter implements IStorageService {
   private readonly baseUrl: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.basePath = this.configService.get<string>('storage.local.path', './uploads');
+    this.basePath = path.resolve(this.configService.get<string>('storage.local.path', './uploads'));
     this.baseUrl = this.configService.get<string>('storage.local.baseUrl', '/uploads');
+  }
+
+  private resolvePath(filePath: string): { absolutePath: string; relativePath: string } {
+    if (!filePath || filePath.includes('\0') || path.isAbsolute(filePath)) {
+      throw new Error('Invalid storage path');
+    }
+
+    const absolutePath = path.resolve(this.basePath, filePath);
+    const relativePath = path.relative(this.basePath, absolutePath);
+    if (
+      relativePath === '..' ||
+      relativePath.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relativePath)
+    ) {
+      throw new Error('Storage path escapes the configured root');
+    }
+
+    return { absolutePath, relativePath };
+  }
+
+  private getFileUrl(filePath: string): string {
+    const normalizedPath = this.resolvePath(filePath).relativePath.replace(/\\/g, '/');
+    const encodedPath = normalizedPath.split('/').map(encodeURIComponent).join('/');
+    return `${this.baseUrl.replace(/\/$/, '')}/${encodedPath}`;
   }
 
   async upload(
@@ -44,13 +68,13 @@ export class LocalStorageAdapter implements IStorageService {
     options: UploadOptions = {},
   ): Promise<FileMetadata> {
     const directory = options.directory || '';
-    const extension = path.extname(originalName);
+    const safeOriginalName = path.basename(originalName);
+    const extension = path.extname(safeOriginalName);
     const filename = options.preserveOriginalName
-      ? originalName
-      : `${options.filename || generateUUID()}${extension}`;
+      ? safeOriginalName
+      : `${path.basename(options.filename || generateUUID())}${extension}`;
 
-    const relativePath = path.join(directory, filename);
-    const absolutePath = path.join(this.basePath, relativePath);
+    const { relativePath, absolutePath } = this.resolvePath(path.join(directory, filename));
 
     // Ensure directory exists
     await fs.mkdir(path.dirname(absolutePath), { recursive: true });
@@ -62,11 +86,11 @@ export class LocalStorageAdapter implements IStorageService {
     if (Buffer.isBuffer(file)) {
       await fs.writeFile(absolutePath, file);
       size = file.length;
-      hash = createHash('md5').update(file).digest('hex');
+      hash = createHash('sha256').update(file).digest('hex');
     } else {
       // Stream upload
       const writeStream = createWriteStream(absolutePath);
-      const hashStream = createHash('md5');
+      const hashStream = createHash('sha256');
 
       size = 0;
       const readable = file as Readable;
@@ -91,7 +115,7 @@ export class LocalStorageAdapter implements IStorageService {
       mimeType,
       size,
       path: relativePath.replace(/\\/g, '/'),
-      url: `${this.baseUrl}/${relativePath.replace(/\\/g, '/')}`,
+      url: this.getFileUrl(relativePath),
       etag: hash,
       uploadedAt: new Date(),
       metadata: options.metadata,
@@ -103,17 +127,17 @@ export class LocalStorageAdapter implements IStorageService {
   }
 
   async download(filePath: string): Promise<Buffer> {
-    const absolutePath = path.join(this.basePath, filePath);
+    const { absolutePath } = this.resolvePath(filePath);
     return fs.readFile(absolutePath);
   }
 
   getStream(filePath: string): Promise<NodeJS.ReadableStream> {
-    const absolutePath = path.join(this.basePath, filePath);
+    const { absolutePath } = this.resolvePath(filePath);
     return Promise.resolve(createReadStream(absolutePath));
   }
 
   async delete(filePath: string): Promise<void> {
-    const absolutePath = path.join(this.basePath, filePath);
+    const { absolutePath } = this.resolvePath(filePath);
     try {
       await fs.unlink(absolutePath);
       this.logger.debug(`File deleted: ${filePath}`);
@@ -129,7 +153,7 @@ export class LocalStorageAdapter implements IStorageService {
   }
 
   async exists(filePath: string): Promise<boolean> {
-    const absolutePath = path.join(this.basePath, filePath);
+    const { absolutePath } = this.resolvePath(filePath);
     try {
       await fs.access(absolutePath);
       return true;
@@ -139,18 +163,18 @@ export class LocalStorageAdapter implements IStorageService {
   }
 
   async getMetadata(filePath: string): Promise<FileMetadata | null> {
-    const absolutePath = path.join(this.basePath, filePath);
+    const { absolutePath, relativePath } = this.resolvePath(filePath);
     try {
       const stats = await fs.stat(absolutePath);
       const content = await fs.readFile(absolutePath);
-      const hash = createHash('md5').update(content).digest('hex');
+      const hash = createHash('sha256').update(content).digest('hex');
 
       return {
-        originalName: path.basename(filePath),
+        originalName: path.basename(relativePath),
         mimeType: 'application/octet-stream', // Would need mime-types library for accurate detection
         size: stats.size,
-        path: filePath,
-        url: `${this.baseUrl}/${filePath}`,
+        path: relativePath.replace(/\\/g, '/'),
+        url: this.getFileUrl(relativePath),
         etag: hash,
         uploadedAt: stats.birthtime,
       };
@@ -162,7 +186,7 @@ export class LocalStorageAdapter implements IStorageService {
   getSignedUrl(filePath: string, _options: SignedUrlOptions = {}): Promise<string> {
     // Local storage doesn't support signed URLs
     // Return the public URL instead
-    return Promise.resolve(`${this.baseUrl}/${filePath}`);
+    return Promise.resolve(this.getFileUrl(filePath));
   }
 
   getUploadSignedUrl(
@@ -172,15 +196,16 @@ export class LocalStorageAdapter implements IStorageService {
   ): Promise<{ url: string; fields?: Record<string, string> }> {
     // Local storage doesn't support presigned uploads
     // Return direct upload endpoint
+    const safePath = this.resolvePath(filePath).relativePath.replace(/\\/g, '/');
     return Promise.resolve({
-      url: `/api/v1/files/upload?path=${encodeURIComponent(filePath)}`,
+      url: `/api/v1/files/upload?path=${encodeURIComponent(safePath)}`,
     });
   }
 
   async list(options: ListOptions = {}): Promise<ListResult> {
-    const prefix = options.prefix || '';
-    const limit = options.limit || 100;
-    const searchPath = path.join(this.basePath, prefix);
+    const prefix = options.prefix || '.';
+    const limit = Math.min(Math.max(options.limit || 100, 1), 1000);
+    const { absolutePath: searchPath, relativePath: safePrefix } = this.resolvePath(prefix);
 
     try {
       const entries = await fs.readdir(searchPath, { withFileTypes: true });
@@ -188,7 +213,7 @@ export class LocalStorageAdapter implements IStorageService {
 
       for (const entry of entries.slice(0, limit)) {
         if (entry.isFile()) {
-          const filePath = path.join(prefix, entry.name);
+          const filePath = path.join(safePrefix, entry.name);
           if (options.includeMetadata) {
             const metadata = await this.getMetadata(filePath);
             if (metadata) {
@@ -200,7 +225,7 @@ export class LocalStorageAdapter implements IStorageService {
               mimeType: 'application/octet-stream',
               size: 0,
               path: filePath.replace(/\\/g, '/'),
-              url: `${this.baseUrl}/${filePath.replace(/\\/g, '/')}`,
+              url: this.getFileUrl(filePath),
               uploadedAt: new Date(),
             });
           }
@@ -217,13 +242,14 @@ export class LocalStorageAdapter implements IStorageService {
   }
 
   async copy(sourcePath: string, destinationPath: string): Promise<FileMetadata> {
-    const sourceAbsolute = path.join(this.basePath, sourcePath);
-    const destAbsolute = path.join(this.basePath, destinationPath);
+    const { absolutePath: sourceAbsolute } = this.resolvePath(sourcePath);
+    const { absolutePath: destAbsolute, relativePath: safeDestinationPath } =
+      this.resolvePath(destinationPath);
 
     await fs.mkdir(path.dirname(destAbsolute), { recursive: true });
     await fs.copyFile(sourceAbsolute, destAbsolute);
 
-    const metadata = await this.getMetadata(destinationPath);
+    const metadata = await this.getMetadata(safeDestinationPath);
     if (!metadata) {
       throw new Error('Failed to copy file');
     }
@@ -237,6 +263,6 @@ export class LocalStorageAdapter implements IStorageService {
   }
 
   getPublicUrl(filePath: string): string | null {
-    return `${this.baseUrl}/${filePath}`;
+    return this.getFileUrl(filePath);
   }
 }

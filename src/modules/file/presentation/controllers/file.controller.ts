@@ -23,6 +23,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import type { Readable } from 'stream';
 import { Auth, ApiStandardResponses } from '@shared/decorators';
+import { generateUUID } from '@shared/utils';
 import {
   STORAGE_SERVICE,
   type IStorageService,
@@ -180,8 +181,12 @@ export class FileController {
       );
     }
 
-    const extension = dto.filename.split('.').pop() || '';
-    const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}.${extension}`;
+    const extension =
+      dto.filename
+        .split('.')
+        .pop()
+        ?.match(/^[a-z0-9]{1,10}$/i)?.[0] || '';
+    const filename = `${Date.now()}-${generateUUID()}${extension ? `.${extension}` : ''}`;
     const path = dto.directory ? `${dto.directory}/${filename}` : filename;
 
     const result = await this.storageService.getUploadSignedUrl(path, dto.mimeType, {
@@ -221,7 +226,7 @@ export class FileController {
 
     res.set({
       'Content-Type': metadata?.mimeType || 'application/octet-stream',
-      'Content-Disposition': `attachment; filename="${metadata?.originalName || 'download'}"`,
+      'Content-Disposition': this.buildContentDisposition(metadata?.originalName),
     });
 
     return new StreamableFile(stream as Readable);
@@ -269,7 +274,7 @@ export class FileController {
       throw new NotFoundException('File not found');
     }
 
-    const expiry = expiresIn ? parseInt(expiresIn, 10) : 3600;
+    const expiry = this.parseExpiry(expiresIn);
     const url = await this.storageService.getSignedUrl(filePath, { expiresIn: expiry });
 
     return {
@@ -346,6 +351,35 @@ export class FileController {
         `File type ${file.mimetype} not allowed. Allowed types: ${this.allowedMimeTypes.join(', ')}`,
       );
     }
+  }
+
+  private parseExpiry(value?: string): number {
+    if (value === undefined) {
+      return 3600;
+    }
+    if (!/^\d+$/.test(value)) {
+      throw new BadRequestException('expiresIn must be a positive integer in seconds');
+    }
+    const expiry = Number(value);
+    if (!Number.isSafeInteger(expiry) || expiry < 1 || expiry > 86400) {
+      throw new BadRequestException('expiresIn must be between 1 and 86400 seconds');
+    }
+    return expiry;
+  }
+
+  private buildContentDisposition(originalName?: string): string {
+    const rawBasename = originalName?.split(/[\\/]/).pop() || 'download';
+    const sanitizedBasename = Array.from(rawBasename)
+      .filter((character) => character.charCodeAt(0) > 31 && character.charCodeAt(0) !== 127)
+      .join('');
+    const basename = sanitizedBasename || 'download';
+    const safeName = basename.replace(/[\uD800-\uDFFF]/g, '_');
+    const asciiName = safeName.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+    const encodedName = encodeURIComponent(safeName).replace(
+      /['()*]/g,
+      (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+    );
+    return `attachment; filename="${asciiName || 'download'}"; filename*=UTF-8''${encodedName}`;
   }
 
   /**

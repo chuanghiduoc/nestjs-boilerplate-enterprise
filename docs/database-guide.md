@@ -54,7 +54,7 @@ The project uses **Repository Pattern** with **Ports & Adapters** architecture:
 ### Choose Database During Setup
 
 ```bash
-yarn setup
+pnpm setup
 ```
 
 Select one of three options:
@@ -80,7 +80,7 @@ DB_TYPE=mongodb
 
 ```bash
 # Remove unused database adapters
-yarn cleanup:db
+pnpm cleanup:db
 ```
 
 ---
@@ -91,7 +91,7 @@ yarn cleanup:db
 
 ```bash
 # Install dependencies (already included)
-yarn add typeorm @nestjs/typeorm pg
+pnpm add typeorm @nestjs/typeorm pg
 
 # Configure .env
 DB_TYPE=postgres
@@ -137,16 +137,16 @@ export class UserEntity extends BaseTypeOrmEntity {
 
 ```bash
 # Generate migration from entity changes
-yarn migration:generate src/infrastructure/persistence/typeorm/migrations/AddUserFields
+pnpm migration:generate src/infrastructure/persistence/typeorm/migrations/AddUserFields
 
 # Run migrations
-yarn migration:run
+pnpm migration:run
 
 # Revert last migration
-yarn migration:revert
+pnpm migration:revert
 
 # View migration status
-yarn migration:show
+pnpm migration:show
 ```
 
 **Migration file example:**
@@ -244,8 +244,8 @@ export class TypeOrmUserRepository implements IUserRepository {
 
 ```bash
 # Install dependencies (already included)
-yarn add @prisma/client
-yarn add -D prisma
+pnpm add @prisma/client
+pnpm add -D prisma
 
 # Initialize Prisma
 npx prisma init
@@ -386,7 +386,7 @@ export class PrismaUserRepository implements IUserRepository {
 
 ```bash
 # Install dependencies (already included)
-yarn add mongoose @nestjs/mongoose
+pnpm add mongoose @nestjs/mongoose
 
 # Configure .env
 DB_TYPE=mongodb
@@ -642,7 +642,7 @@ npx prisma db push
 ### Step 3: Restart Application
 
 ```bash
-yarn start:dev
+pnpm start:dev
 ```
 
 Database module automatically loads correct adapter based on `DB_TYPE`:

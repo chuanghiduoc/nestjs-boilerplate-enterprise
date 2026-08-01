@@ -102,10 +102,12 @@ export function configureApp(app: INestApplication, appConfig?: AppConfig): void
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error('Not allowed by CORS'));
+        // Reject the browser origin without turning a policy decision into a
+        // server error. The browser will enforce the missing ACAO header.
+        callback(null, false);
       }
     },
-    credentials: true,
+    credentials: appConfig?.corsCredentials ?? false,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: [
       'Content-Type',
@@ -120,7 +122,7 @@ export function configureApp(app: INestApplication, appConfig?: AppConfig): void
       'X-RateLimit-Remaining',
       'X-RateLimit-Reset',
     ],
-    maxAge: 86400,
+    maxAge: appConfig?.corsMaxAge ?? 86400,
   });
 
   // ============================================

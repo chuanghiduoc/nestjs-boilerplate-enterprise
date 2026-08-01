@@ -1,5 +1,6 @@
 import {
   PrimaryColumn,
+  PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
   DeleteDateColumn,
@@ -15,7 +16,7 @@ import {
  * Section 8.2: Entity Separation - ORM entities have decorators
  */
 export abstract class BaseTypeOrmEntity {
-  @PrimaryColumn('uuid')
+  @PrimaryGeneratedColumn('uuid')
   id!: string;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp with time zone' })

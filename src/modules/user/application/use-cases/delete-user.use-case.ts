@@ -92,7 +92,7 @@ export class DeleteUserUseCase extends BaseUseCase<DeleteUserInput, DeleteUserOu
 
         // Add deletion event
         const event = new UserDeletedEvent(user.id, user.tenantId, false);
-        this.unitOfWork.addDomainEvents([event as never]);
+        this.unitOfWork.addDomainEvents([event]);
       }
 
       return Result.ok({

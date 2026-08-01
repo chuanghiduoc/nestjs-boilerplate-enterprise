@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import type { Model, Document } from 'mongoose';
+import type { HydratedDocument, Model } from 'mongoose';
 import type {
   PaginatedResult,
   PaginationParams,
@@ -15,13 +15,13 @@ import type {
 import { Email } from '@modules/user/domain/value-objects/email.value-object';
 import { Password } from '@modules/user/domain/value-objects/password.value-object';
 import { USER_MODEL } from '../mongoose.module';
-import type { IUserDocument, MongoUserStatus } from '../schemas/user.schema';
+import { MongoUserStatus, type IUserDocument } from '../schemas/user.schema';
 import { BaseMongooseRepository, type IMongooseMapper } from '../base/base-repository.mongoose';
 
 /**
  * User Document with Mongoose Document interface
  */
-type UserDocument = IUserDocument & Document;
+type UserDocument = HydratedDocument<IUserDocument>;
 
 /**
  * User Mapper for Mongoose
@@ -49,7 +49,7 @@ class MongooseUserMapper implements IMongooseMapper<User, UserDocument> {
   }
 
   toDomain(doc: UserDocument): User {
-    return User.reconstitute(doc._id.toString(), {
+    return User.reconstitute(doc._id, {
       email: Email.create(doc.email),
       password: Password.fromHash(doc.passwordHash),
       firstName: doc.firstName || '',
@@ -91,14 +91,14 @@ class MongooseUserMapper implements IMongooseMapper<User, UserDocument> {
  */
 @Injectable()
 export class MongooseUserRepository
-  extends BaseMongooseRepository<User, UserDocument, UserFilterCriteria>
+  extends BaseMongooseRepository<User, IUserDocument, UserFilterCriteria>
   implements IUserRepository
 {
   private readonly userMapper: MongooseUserMapper;
 
   constructor(
     @InjectModel(USER_MODEL)
-    model: Model<UserDocument>,
+    model: Model<IUserDocument>,
   ) {
     const mapper = new MongooseUserMapper();
     super(model, mapper);
@@ -204,7 +204,7 @@ export class MongooseUserRepository
     return this.model
       .countDocuments({
         tenantId,
-        status: 'ACTIVE',
+        status: MongoUserStatus.ACTIVE,
       })
       .exec();
   }
@@ -212,7 +212,7 @@ export class MongooseUserRepository
   async findPendingActivation(olderThan: Date): Promise<User[]> {
     const docs = await this.model
       .find({
-        status: 'PENDING_VERIFICATION',
+        status: MongoUserStatus.PENDING_VERIFICATION,
         createdAt: { $lt: olderThan },
       })
       .exec();

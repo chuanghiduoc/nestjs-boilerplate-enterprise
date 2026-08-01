@@ -1,7 +1,9 @@
 # compiled output
 /dist
+*.tsbuildinfo
 /node_modules
 /build
+/src/generated/prisma
 
 # Logs
 logs

@@ -75,10 +75,10 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
    * Uses user ID for authenticated requests, IP for anonymous
    */
   protected override getTracker(req: Request): Promise<string> {
-    const user = req.user as { id?: string; sub?: string } | undefined;
+    const user = req.user;
 
-    if (user?.id || user?.sub) {
-      return Promise.resolve(`user:${user.id || user.sub}`);
+    if (user?.sub) {
+      return Promise.resolve(`user:${user.sub}`);
     }
 
     // Fall back to IP address
@@ -101,7 +101,7 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
 
     // Check request for user info
     const request = context.switchToHttp().getRequest<Request>();
-    const user = request.user as { tier?: RateLimitTier; roles?: string[] } | undefined;
+    const user = request.user;
 
     // Check for internal service token
     const authHeader = request.headers.authorization;
