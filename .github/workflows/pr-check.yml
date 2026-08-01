@@ -106,17 +106,34 @@ jobs:
   # Dependency Review
   # ----------------------------------------------
   dependency-review:
-    name: Dependency Review
+    name: Dependency & License Review
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v4
+      # GitHub's dependency-review action requires the repository dependency
+      # graph service. Keep this check deterministic and available even while
+      # that graph is disabled, initializing, or temporarily unavailable.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          fail-on-severity: high
-          deny-licenses: GPL-3.0, AGPL-3.0
+          version: 11.18.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level high
+
+      - name: Reject denied production licenses
+        run: pnpm licenses:check
 
   # ----------------------------------------------
   # Code Coverage Diff
