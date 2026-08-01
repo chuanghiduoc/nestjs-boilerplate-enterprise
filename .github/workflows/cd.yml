@@ -28,7 +28,7 @@ on:
     types: [published]
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '24'
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
@@ -112,7 +112,7 @@ jobs:
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
           script: |
             cd /opt/nestjs-app
-            docker compose -f docker-compose.prod.yml run --rm app yarn migration:run
+            docker compose -f docker-compose.prod.yml run --rm app pnpm migration:run
 
       - name: Deploy with zero downtime
         uses: appleboy/ssh-action@v1.0.3

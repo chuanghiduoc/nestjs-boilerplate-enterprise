@@ -29,7 +29,10 @@ export const dataSourceOptions: DataSourceOptions = {
   migrations: ['src/infrastructure/persistence/typeorm/migrations/*.ts'],
   synchronize: false, // Never use in production!
   logging: process.env.DB_LOGGING === 'true',
-  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  ssl:
+    process.env.DB_SSL === 'true'
+      ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' }
+      : false,
 };
 
 /**

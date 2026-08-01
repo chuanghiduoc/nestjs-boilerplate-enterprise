@@ -1,0 +1,18 @@
+allowBuilds:
+  '@apollo/protobufjs': true
+  '@prisma/engines': true
+  '@scarf/scarf': false
+  bcrypt: true
+  msgpackr-extract: true
+  prisma: true
+  protobufjs: true
+  unrs-resolver: true
+minimumReleaseAgeExclude:
+  - '@aws-sdk/client-s3@3.1101.0'
+  - '@aws-sdk/s3-request-presigner@3.1101.0'
+  - lint-staged@17.3.0
+  - mongoose@9.9.1
+overrides:
+  uuid: '11.1.1'
+  ws: '>=8.21.0'
+  js-yaml: '>=5.2.2'

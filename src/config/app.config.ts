@@ -21,7 +21,11 @@ export const appConfig = registerAs('app', () => ({
   apiVersion: process.env.API_VERSION || '1',
 
   // Security
-  corsOrigins: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],
+  corsOrigins: process.env.CORS_ORIGINS?.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean) || ['http://localhost:3000'],
+  corsCredentials: process.env.CORS_CREDENTIALS === 'true',
+  corsMaxAge: parseInt(process.env.CORS_MAX_AGE || '86400', 10),
 
   // Debug
   debug: process.env.APP_DEBUG === 'true',

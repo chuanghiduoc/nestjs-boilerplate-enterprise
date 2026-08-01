@@ -17,8 +17,12 @@ export class SanitizePipe implements PipeTransform {
       return this.sanitizeString(value);
     }
 
-    if (typeof value === 'object' && value !== null) {
-      return this.sanitizeObject(value as Record<string, unknown>);
+    if (Array.isArray(value)) {
+      return value.map((item) => this.transform(item));
+    }
+
+    if (this.isPlainObject(value)) {
+      return this.sanitizeObject(value);
     }
 
     return value;
@@ -43,17 +47,19 @@ export class SanitizePipe implements PipeTransform {
 
       if (typeof value === 'string') {
         result[sanitizedKey] = this.sanitizeString(value);
-      } else if (Array.isArray(value)) {
-        result[sanitizedKey] = (value as unknown[]).map((item: unknown) =>
-          typeof item === 'string' ? this.sanitizeString(item) : item,
-        );
-      } else if (typeof value === 'object' && value !== null) {
-        result[sanitizedKey] = this.sanitizeObject(value as Record<string, unknown>);
       } else {
-        result[sanitizedKey] = value;
+        result[sanitizedKey] = this.transform(value);
       }
     }
 
     return result;
+  }
+
+  private isPlainObject(value: unknown): value is Record<string, unknown> {
+    if (typeof value !== 'object' || value === null) {
+      return false;
+    }
+    const prototype = Reflect.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
   }
 }

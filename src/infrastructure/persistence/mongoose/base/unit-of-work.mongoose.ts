@@ -30,67 +30,58 @@ export class MongooseUnitOfWork implements IUnitOfWork {
     private readonly eventBus: IEventBus,
   ) {}
 
-  async beginTransaction(options?: TransactionOptions): Promise<void> {
+  beginTransaction(_options?: TransactionOptions): Promise<void> {
+    return Promise.reject(
+      new Error('Mongoose only supports callback transactions; use executeInTransaction()'),
+    );
+  }
+
+  commit(): Promise<void> {
+    return Promise.reject(
+      new Error('Mongoose only supports callback transactions; use executeInTransaction()'),
+    );
+  }
+
+  rollback(): Promise<void> {
+    return Promise.reject(
+      new Error('Mongoose only supports callback transactions; use executeInTransaction()'),
+    );
+  }
+
+  async executeInTransaction<T>(fn: () => Promise<T>, options?: TransactionOptions): Promise<T> {
     if (this.transactionActive) {
       throw new Error('Transaction already active');
     }
 
-    this.session = await this.connection.startSession();
-
-    // Map isolation levels to MongoDB read concerns
     const readConcernLevel = options?.isolationLevel
       ? this.mapIsolationLevel(options.isolationLevel)
       : 'majority';
 
-    this.session.startTransaction({
-      readConcern: { level: readConcernLevel },
-      writeConcern: { w: 'majority' },
-    });
-
-    this.transactionActive = true;
-  }
-
-  async commit(): Promise<void> {
-    if (!this.session || !this.transactionActive) {
-      throw new Error('No active transaction to commit');
-    }
-
     try {
-      await this.session.commitTransaction();
+      const result = await this.connection.transaction(
+        async (session) => {
+          this.session = session;
+          this.transactionActive = true;
+          return fn();
+        },
+        {
+          readConcern: { level: readConcernLevel },
+          writeConcern: { w: 'majority' },
+        },
+      );
 
-      // Dispatch domain events after successful commit
       if (this.pendingEvents.length > 0) {
         await this.eventBus.publishAll(this.pendingEvents);
         this.clearPendingEvents();
       }
-    } finally {
-      await this.releaseSession();
-    }
-  }
 
-  async rollback(): Promise<void> {
-    if (!this.session || !this.transactionActive) {
-      throw new Error('No active transaction to rollback');
-    }
-
-    try {
-      await this.session.abortTransaction();
-      this.clearPendingEvents();
-    } finally {
-      await this.releaseSession();
-    }
-  }
-
-  async executeInTransaction<T>(fn: () => Promise<T>, options?: TransactionOptions): Promise<T> {
-    await this.beginTransaction(options);
-
-    try {
-      const result = await fn();
-      await this.commit();
       return result;
     } catch (error) {
-      await this.rollback();
+      this.clearPendingEvents();
       throw error;
+    } finally {
+      this.session = null;
+      this.transactionActive = false;
     }
   }
 
@@ -138,14 +129,6 @@ export class MongooseUnitOfWork implements IUnitOfWork {
     return Promise.reject(
       new Error('MongoDB does not support savepoints. Consider restructuring your transaction.'),
     );
-  }
-
-  private async releaseSession(): Promise<void> {
-    if (this.session) {
-      await this.session.endSession();
-      this.session = null;
-      this.transactionActive = false;
-    }
   }
 
   private mapIsolationLevel(

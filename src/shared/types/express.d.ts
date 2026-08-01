@@ -1,5 +1,3 @@
-import type { JwtPayload } from '@modules/auth/infrastructure/services/jwt.service';
-
 /**
  * Express Request Extension
  *
@@ -8,12 +6,15 @@ import type { JwtPayload } from '@modules/auth/infrastructure/services/jwt.servi
  */
 declare global {
   namespace Express {
-    interface Request {
-      /**
-       * Authenticated user payload from JWT
-       */
-      user?: JwtPayload;
+    interface User {
+      id?: string;
+      sub?: string;
+      tenantId?: string;
+      roles?: readonly string[];
+      tier?: 'anonymous' | 'authenticated' | 'premium' | 'internal';
+    }
 
+    interface Request {
       /**
        * Resolved tenant ID for multi-tenancy
        */

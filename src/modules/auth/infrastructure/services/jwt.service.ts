@@ -30,6 +30,7 @@ export interface JwtPayload extends BaseJwtPayload {
   tenantId?: string;
   roles: readonly string[];
   permissions: readonly string[];
+  tier?: 'anonymous' | 'authenticated' | 'premium' | 'internal';
 }
 
 /**
@@ -80,7 +81,7 @@ export class JwtService {
       throw new Error('JWT configuration not found');
     }
     this.jwtConfig = config;
-    this.algorithm = config.algorithm as Algorithm;
+    this.algorithm = config.algorithm;
 
     // Determine signing and verification keys based on algorithm
     if (this.isAsymmetricAlgorithm(config.algorithm)) {

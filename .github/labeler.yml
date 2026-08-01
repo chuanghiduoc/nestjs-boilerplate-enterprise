@@ -14,7 +14,7 @@ dependencies:
   - changed-files:
       - any-glob-to-any-file:
           - 'package.json'
-          - 'yarn.lock'
+          - 'pnpm-lock.yaml'
 
 # Configuration
 config:

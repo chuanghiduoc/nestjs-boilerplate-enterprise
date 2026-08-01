@@ -18,7 +18,9 @@ export class ResponseTimeInterceptor implements NestInterceptor {
     return next.handle().pipe(
       tap(() => {
         const duration = Date.now() - startTime;
-        response.setHeader('X-Response-Time', `${duration}ms`);
+        if (!response.headersSent) {
+          response.setHeader('X-Response-Time', `${duration}ms`);
+        }
       }),
     );
   }

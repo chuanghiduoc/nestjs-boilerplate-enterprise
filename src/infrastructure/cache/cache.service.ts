@@ -22,13 +22,16 @@ interface CacheEntry<T> {
 @Injectable()
 export class CacheService implements ICache {
   private readonly store = new Map<string, CacheEntry<unknown>>();
+  private readonly inFlight = new Map<string, Promise<unknown>>();
   private readonly keyPrefix: string;
   private readonly defaultTTL: number;
+  private readonly maxItems: number;
 
   constructor(private readonly configService: ConfigService) {
     const cacheConfig = this.configService.get<CacheConfig>('cache');
     this.keyPrefix = cacheConfig?.keyPrefix || 'app:';
     this.defaultTTL = cacheConfig?.ttl || 300; // 5 minutes
+    this.maxItems = Math.max(1, cacheConfig?.max || 100);
   }
 
   private getFullKey(key: string, prefix?: string): string {
@@ -50,37 +53,46 @@ export class CacheService implements ICache {
     }
   }
 
-  get<T>(key: string): Promise<T | null> {
-    const fullKey = this.getFullKey(key);
-    const entry = this.store.get(fullKey) as CacheEntry<T> | undefined;
+  private getEntryByFullKey(fullKey: string): CacheEntry<unknown> | undefined {
+    const entry = this.store.get(fullKey);
 
     if (!entry) {
-      return Promise.resolve(null);
+      return undefined;
     }
 
     if (this.isExpired(entry)) {
       this.store.delete(fullKey);
-      return Promise.resolve(null);
+      return undefined;
     }
 
-    return Promise.resolve(entry.value);
+    return entry;
+  }
+
+  get<T>(key: string): Promise<T | null> {
+    const entry = this.getEntryByFullKey(this.getFullKey(key));
+    return Promise.resolve(entry ? (entry.value as T) : null);
   }
 
   set(key: string, value: unknown, options?: CacheOptions): Promise<void> {
     const fullKey = this.getFullKey(key, options?.prefix);
     const ttl = options?.ttl ?? this.defaultTTL;
 
+    this.cleanupExpired();
+    if (!this.store.has(fullKey) && this.store.size >= this.maxItems) {
+      const oldestKey = this.store.keys().next().value;
+      if (oldestKey) {
+        this.store.delete(oldestKey);
+      }
+    }
+
     const entry: CacheEntry<unknown> = {
       value,
       expiresAt: ttl > 0 ? Date.now() + ttl * 1000 : null,
     };
 
+    // Reinsert existing keys so the map also acts as a small LRU queue.
+    this.store.delete(fullKey);
     this.store.set(fullKey, entry);
-
-    // Periodic cleanup
-    if (this.store.size % 100 === 0) {
-      this.cleanupExpired();
-    }
 
     return Promise.resolve();
   }
@@ -92,7 +104,12 @@ export class CacheService implements ICache {
 
   deleteByPattern(pattern: string): Promise<number> {
     const fullPattern = this.getFullKey(pattern);
-    const regex = new RegExp(`^${fullPattern.replace(/\*/g, '.*')}$`);
+    const regex = new RegExp(
+      `^${fullPattern
+        .split('*')
+        .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('.*')}$`,
+    );
     let count = 0;
 
     for (const key of this.store.keys()) {
@@ -105,9 +122,14 @@ export class CacheService implements ICache {
     return Promise.resolve(count);
   }
 
-  async exists(key: string): Promise<boolean> {
-    const value = await this.get<unknown>(key);
-    return value !== null;
+  exists(key: string): Promise<boolean> {
+    const fullKey = this.getFullKey(key);
+    const entry = this.store.get(fullKey);
+    if (!entry || this.isExpired(entry)) {
+      this.store.delete(fullKey);
+      return Promise.resolve(false);
+    }
+    return Promise.resolve(true);
   }
 
   getTTL(key: string): Promise<number> {
@@ -139,14 +161,28 @@ export class CacheService implements ICache {
   }
 
   async getOrSet<T>(key: string, factory: () => Promise<T>, options?: CacheOptions): Promise<T> {
-    const existing = await this.get<T>(key);
-    if (existing !== null) {
-      return existing;
+    const fullKey = this.getFullKey(key, options?.prefix);
+    const existing = this.getEntryByFullKey(fullKey);
+    if (existing) {
+      return existing.value as T;
     }
 
-    const value = await factory();
-    await this.set(key, value, options);
-    return value;
+    const pending = this.inFlight.get(fullKey) as Promise<T> | undefined;
+    if (pending) {
+      return pending;
+    }
+
+    const operation = factory().then(async (value) => {
+      await this.set(key, value, options);
+      return value;
+    });
+    this.inFlight.set(fullKey, operation);
+
+    try {
+      return await operation;
+    } finally {
+      this.inFlight.delete(fullKey);
+    }
   }
 
   increment(key: string, increment = 1): Promise<number> {

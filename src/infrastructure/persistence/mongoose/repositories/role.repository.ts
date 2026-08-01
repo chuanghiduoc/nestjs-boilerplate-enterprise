@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import type { Model, Document } from 'mongoose';
+import type { HydratedDocument, Model } from 'mongoose';
 import { Role } from '@modules/role/domain/entities/role.entity';
 import type {
   IRoleRepository,
@@ -13,14 +13,14 @@ import { BaseMongooseRepository, type IMongooseMapper } from '../base/base-repos
 /**
  * Role Document with Mongoose Document interface
  */
-type RoleDocument = IRoleDocument & Document;
+type RoleDocument = HydratedDocument<IRoleDocument>;
 
 /**
  * Role Mapper for Mongoose
  */
 class MongooseRoleMapper implements IMongooseMapper<Role, RoleDocument> {
   toDomain(doc: RoleDocument): Role {
-    return Role.reconstitute(doc._id.toString(), {
+    return Role.reconstitute(doc._id, {
       name: doc.name,
       description: doc.description,
       permissions: doc.permissions || [],
@@ -55,14 +55,14 @@ class MongooseRoleMapper implements IMongooseMapper<Role, RoleDocument> {
  */
 @Injectable()
 export class MongooseRoleRepository
-  extends BaseMongooseRepository<Role, RoleDocument, RoleFilterCriteria>
+  extends BaseMongooseRepository<Role, IRoleDocument, RoleFilterCriteria>
   implements IRoleRepository
 {
   private readonly roleMapper: MongooseRoleMapper;
 
   constructor(
     @InjectModel(ROLE_MODEL)
-    model: Model<RoleDocument>,
+    model: Model<IRoleDocument>,
   ) {
     const mapper = new MongooseRoleMapper();
     super(model, mapper);

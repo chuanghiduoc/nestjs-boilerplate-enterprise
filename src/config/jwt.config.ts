@@ -32,6 +32,9 @@ function parseDuration(duration: string): number {
  * Following Section 12.5 - JWT Security Best Practices
  */
 export const jwtConfig = registerAs('jwt', () => ({
+  // Never allow the documented development fallback to reach production.
+  // Fail fast so a deployment cannot accidentally start with a forgeable key.
+  ...validateProductionConfiguration(),
   // Algorithm (Section 12.5 recommends RS256 or ES256 for production)
   algorithm: (process.env.JWT_ALGORITHM as 'RS256' | 'HS256' | 'ES256') || 'HS256',
 
@@ -54,5 +57,25 @@ export const jwtConfig = registerAs('jwt', () => ({
   // Blacklist (using Redis)
   blacklistEnabled: process.env.JWT_BLACKLIST_ENABLED !== 'false',
 }));
+
+function validateProductionConfiguration(): Record<string, never> {
+  if (process.env.NODE_ENV !== 'production') {
+    return {};
+  }
+
+  const algorithm = process.env.JWT_ALGORITHM || 'HS256';
+  const secret = process.env.JWT_SECRET;
+  if (algorithm === 'HS256' && (!secret || secret.length < 32)) {
+    throw new Error('JWT_SECRET must be at least 32 characters in production');
+  }
+
+  if (algorithm !== 'HS256' && (!process.env.JWT_PRIVATE_KEY || !process.env.JWT_PUBLIC_KEY)) {
+    throw new Error(
+      'JWT_PRIVATE_KEY and JWT_PUBLIC_KEY are required for asymmetric JWT algorithms',
+    );
+  }
+
+  return {};
+}
 
 export type JwtConfig = ReturnType<typeof jwtConfig>;

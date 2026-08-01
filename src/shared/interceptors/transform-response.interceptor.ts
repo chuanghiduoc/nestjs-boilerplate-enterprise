@@ -1,4 +1,10 @@
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
+import {
+  CallHandler,
+  ExecutionContext,
+  Injectable,
+  NestInterceptor,
+  StreamableFile,
+} from '@nestjs/common';
 import { Observable, map } from 'rxjs';
 import { Response } from 'express';
 import type { ApiResponse, ResponseMeta } from '../dtos/response.dto';
@@ -16,6 +22,19 @@ export class TransformResponseInterceptor<T> implements NestInterceptor<T, ApiRe
 
     return next.handle().pipe(
       map((data) => {
+        // Handlers that use @Res() (Prometheus metrics, streams, downloads)
+        // may have already committed the response. Never mutate or wrap it.
+        if (response.headersSent) {
+          return data as ApiResponse<T>;
+        }
+
+        // Binary downloads must pass through untouched. Wrapping a
+        // StreamableFile would serialize its internals as JSON instead of
+        // sending the file bytes to the client.
+        if (data instanceof StreamableFile) {
+          return data as unknown as ApiResponse<T>;
+        }
+
         // Set standard headers (Section 11.7)
         const requestId = response.getHeader('X-Request-Id') as string | undefined;
         if (requestId) {
@@ -56,7 +75,7 @@ export class TransformResponseInterceptor<T> implements NestInterceptor<T, ApiRe
       data !== null &&
       typeof data === 'object' &&
       'success' in data &&
-      typeof (data as { success: unknown }).success === 'boolean'
+      typeof data.success === 'boolean'
     );
   }
 

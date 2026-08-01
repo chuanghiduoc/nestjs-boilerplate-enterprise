@@ -235,12 +235,12 @@ curl -X PATCH http://localhost:3000/api/v1/users/550e8400-e29b-41d4-a716-4466554
 
 ### Health
 
-| Method | Endpoint          | Description     | Auth |
-| ------ | ----------------- | --------------- | ---- |
-| GET    | `/health/live`    | Liveness probe  | No   |
-| GET    | `/health/ready`   | Readiness probe | No   |
-| GET    | `/health/startup` | Startup probe   | No   |
-| GET    | `/health/deep`    | Deep dependency check | No |
+| Method | Endpoint          | Description           | Auth |
+| ------ | ----------------- | --------------------- | ---- |
+| GET    | `/health/live`    | Liveness probe        | No   |
+| GET    | `/health/ready`   | Readiness probe       | No   |
+| GET    | `/health/startup` | Startup probe         | No   |
+| GET    | `/health/deep`    | Deep dependency check | No   |
 
 ---
 

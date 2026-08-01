@@ -1,8 +1,27 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Field, InputType, ObjectType, Int } from '@nestjs/graphql';
 import { PAGINATION } from '@shared/constants';
+
+const SORTABLE_FIELDS = [
+  'id',
+  'name',
+  'email',
+  'firstName',
+  'lastName',
+  'slug',
+  'status',
+  'emailVerified',
+  'isSystem',
+  'trialEndsAt',
+  'action',
+  'entityType',
+  'userId',
+  'tenantId',
+  'createdAt',
+  'updatedAt',
+] as const;
 
 /**
  * Pagination Query DTO
@@ -44,6 +63,7 @@ export class PaginationQueryDto {
   @Field({ nullable: true })
   @IsOptional()
   @IsString()
+  @IsIn(SORTABLE_FIELDS)
   sortField?: string;
 
   @ApiPropertyOptional({
@@ -54,6 +74,7 @@ export class PaginationQueryDto {
   @Field({ nullable: true, defaultValue: 'DESC' })
   @IsOptional()
   @IsString()
+  @IsIn(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC';
 }
 

@@ -1,7 +1,7 @@
 import { Module, Global, type DynamicModule, Inject, type OnModuleDestroy } from '@nestjs/common';
 import { MongooseModule, getConnectionToken } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import type { Connection } from 'mongoose';
+import mongoose, { type Connection } from 'mongoose';
 import type { DatabaseConfig } from '@config/database.config';
 import { UNIT_OF_WORK } from '@core/domain/ports/repositories';
 import { EVENT_BUS, type IEventBus, type ILogger, LOGGER } from '@core/domain/ports/services';
@@ -29,6 +29,10 @@ export const USER_MODEL = 'User';
 export const ROLE_MODEL = 'Role';
 export const TENANT_MODEL = 'Tenant';
 export const REFRESH_TOKEN_MODEL = 'RefreshToken';
+
+// Automatically binds every Mongoose operation in Connection#transaction()
+// to the transaction's session without leaking sessions across requests.
+mongoose.set('transactionAsyncLocalStorage', true);
 
 /**
  * Mongoose Database Module

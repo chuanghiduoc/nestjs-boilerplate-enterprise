@@ -1,4 +1,5 @@
 import { Injectable, Scope } from '@nestjs/common';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type {
   IUnitOfWork,
   IsolationLevel,
@@ -24,6 +25,32 @@ export interface PrismaClientWithTransaction {
     fn: (tx: PrismaTransactionClient) => Promise<T>,
     options?: { isolationLevel?: string; timeout?: number },
   ) => Promise<T>;
+}
+
+const transactionStorage = new AsyncLocalStorage<PrismaTransactionClient>();
+
+/**
+ * Routes model delegate access to Prisma's transaction client for the current
+ * async request while retaining the root client outside a transaction.
+ */
+export function createTransactionAwarePrismaClient<TClient extends object>(
+  client: TClient,
+): TClient {
+  return new Proxy(client, {
+    get(target, property): unknown {
+      const transactionClient = transactionStorage.getStore();
+      const source =
+        transactionClient && property in transactionClient ? transactionClient : target;
+      const value: unknown = Reflect.get(source, property, source);
+      if (typeof value !== 'function') {
+        return value;
+      }
+      return (...args: unknown[]): unknown => {
+        const result: unknown = Reflect.apply(value, source, args);
+        return result;
+      };
+    },
+  });
 }
 
 /**
@@ -53,11 +80,9 @@ export class PrismaUnitOfWork implements IUnitOfWork {
    * Use executeInTransaction instead for transactional operations.
    */
   beginTransaction(_options?: TransactionOptions): Promise<void> {
-    if (this.transactionActive) {
-      return Promise.reject(new Error('Transaction already active'));
-    }
-    this.transactionActive = true;
-    return Promise.resolve();
+    return Promise.reject(
+      new Error('Prisma only supports callback transactions; use executeInTransaction()'),
+    );
   }
 
   async commit(): Promise<void> {
@@ -92,6 +117,10 @@ export class PrismaUnitOfWork implements IUnitOfWork {
    * Execute a function within a Prisma interactive transaction
    */
   async executeInTransaction<T>(fn: () => Promise<T>, options?: TransactionOptions): Promise<T> {
+    if (this.transactionActive) {
+      throw new Error('Transaction already active');
+    }
+
     const prismaOptions: { isolationLevel?: string; timeout?: number } = {};
 
     if (options?.isolationLevel) {
@@ -107,7 +136,7 @@ export class PrismaUnitOfWork implements IUnitOfWork {
 
       const result = await this.prisma.$transaction(async (tx) => {
         this.transactionClient = tx;
-        return fn();
+        return transactionStorage.run(tx, fn);
       }, prismaOptions);
 
       // Dispatch domain events after successful commit

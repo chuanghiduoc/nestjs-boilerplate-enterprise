@@ -7,11 +7,13 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "isolatedModules": true,
+    "types": ["node", "jest"],
 
     // Target & Output
     "target": "ES2022",
     "lib": ["ES2022"],
     "outDir": "./dist",
+    "rootDir": "./src",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -46,14 +48,13 @@
     "experimentalDecorators": true,
 
     // Path & Build
-    "baseUrl": "./",
     "paths": {
-      "@/*": ["src/*"],
-      "@config/*": ["src/config/*"],
-      "@shared/*": ["src/shared/*"],
-      "@core/*": ["src/core/*"],
-      "@infrastructure/*": ["src/infrastructure/*"],
-      "@modules/*": ["src/modules/*"]
+      "@/*": ["./src/*"],
+      "@config/*": ["./src/config/*"],
+      "@shared/*": ["./src/shared/*"],
+      "@core/*": ["./src/core/*"],
+      "@infrastructure/*": ["./src/infrastructure/*"],
+      "@modules/*": ["./src/modules/*"]
     },
     "incremental": true,
     "skipLibCheck": true

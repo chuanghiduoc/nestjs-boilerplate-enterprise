@@ -59,10 +59,7 @@ export interface InAppNotificationData {
 }
 
 export type NotificationJobData =
-  | PushNotificationData
-  | WebhookNotificationData
-  | SmsNotificationData
-  | InAppNotificationData;
+  PushNotificationData | WebhookNotificationData | SmsNotificationData | InAppNotificationData;
 
 /**
  * Notification Queue Service

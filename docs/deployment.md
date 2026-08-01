@@ -57,9 +57,9 @@ The repository ships a production-ready multi-stage `Dockerfile`. Key points:
 FROM node:20-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache openssl            # required by Prisma's engine
-COPY package.json yarn.lock ./
+COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma                       # schema must be present for "prisma generate"
-RUN yarn install --frozen-lockfile --production=false
+RUN pnpm install --frozen-lockfile --production=false
 
 # Stage 2: builder (nest-cli bundles i18n/email assets into dist)
 FROM node:20-alpine AS builder
@@ -67,8 +67,8 @@ WORKDIR /app
 RUN apk add --no-cache openssl
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN yarn build
-RUN yarn install --frozen-lockfile --production=true && yarn cache clean
+RUN pnpm build
+RUN pnpm install --frozen-lockfile --production=true && pnpm store prune
 
 # Stage 3: runner (non-root, runtime assets already inside dist)
 FROM node:20-alpine AS runner
@@ -93,8 +93,8 @@ USER nestjs
 CMD ["node", "dist/main.js"]
 ```
 
-> The package manager is pinned (`"packageManager": "yarn@1.22.22"`) so Corepack
-> always uses Yarn Classic — keep the committed `yarn.lock` in that format.
+> The package manager is pinned (`"packageManager": "pnpm@11.18.0"`) so Corepack
+> always uses pnpm — keep the committed `pnpm-lock.yaml` in that format.
 
 ### Docker Compose (Production)
 
@@ -429,16 +429,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'yarn'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Run tests
-        run: yarn test
+        run: pnpm test
 
       - name: Build
-        run: yarn build
+        run: pnpm build
 
       - name: Build Docker image
         run: docker build -t ${{ secrets.REGISTRY }}/nestjs-app:${{ github.sha }} .
@@ -518,7 +518,7 @@ Use environment-specific secret management:
 
 ```bash
 # Run migrations before deploying new version
-yarn migration:run
+pnpm migration:run
 
 # Or in Docker
 docker run --rm \
@@ -527,7 +527,7 @@ docker run --rm \
   -e DB_PASSWORD=... \
   -e DB_DATABASE=... \
   nestjs-app:latest \
-  yarn migration:run
+  pnpm migration:run
 ```
 
 ### Kubernetes Job
@@ -544,7 +544,7 @@ spec:
       containers:
         - name: migration
           image: your-registry/nestjs-app:latest
-          command: ['yarn', 'migration:run']
+          command: ['pnpm', 'migration:run']
           envFrom:
             - secretRef:
                 name: nestjs-app-secrets
@@ -610,7 +610,7 @@ Structured JSON logs for log aggregation:
 - [ ] Review security headers (Helmet)
 - [ ] Disable debug mode
 - [ ] Remove development dependencies
-- [ ] Scan for vulnerabilities (`yarn audit`)
+- [ ] Scan for vulnerabilities (`pnpm audit`)
 
 ### Environment
 
@@ -669,5 +669,5 @@ kubectl rollout undo deployment/nestjs-app --to-revision=2
 
 ```bash
 # Revert last migration
-yarn migration:revert
+pnpm migration:revert
 ```

@@ -13,8 +13,12 @@ export class TrimStringPipe implements PipeTransform {
       return value.trim();
     }
 
-    if (typeof value === 'object' && value !== null) {
-      return this.trimObject(value as Record<string, unknown>);
+    if (Array.isArray(value)) {
+      return value.map((item) => this.transform(item));
+    }
+
+    if (this.isPlainObject(value)) {
+      return this.trimObject(value);
     }
 
     return value;
@@ -26,17 +30,19 @@ export class TrimStringPipe implements PipeTransform {
     for (const [key, value] of Object.entries(obj)) {
       if (typeof value === 'string') {
         result[key] = value.trim();
-      } else if (Array.isArray(value)) {
-        result[key] = (value as unknown[]).map((item: unknown) =>
-          typeof item === 'string' ? item.trim() : item,
-        );
-      } else if (typeof value === 'object' && value !== null) {
-        result[key] = this.trimObject(value as Record<string, unknown>);
       } else {
-        result[key] = value;
+        result[key] = this.transform(value);
       }
     }
 
     return result;
+  }
+
+  private isPlainObject(value: unknown): value is Record<string, unknown> {
+    if (typeof value !== 'object' || value === null) {
+      return false;
+    }
+    const prototype = Reflect.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
   }
 }

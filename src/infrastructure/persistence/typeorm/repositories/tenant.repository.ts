@@ -13,6 +13,7 @@ import type {
 } from '@modules/tenant/domain/repositories/tenant.repository.interface';
 import { TenantEntity } from '../entities/tenant.entity';
 import { TenantMapper } from '../../mappers/tenant.mapper';
+import { createTransactionAwareRepository } from '../base/transaction-context.typeorm';
 
 /**
  * TypeORM Tenant Repository Implementation
@@ -23,10 +24,14 @@ import { TenantMapper } from '../../mappers/tenant.mapper';
  */
 @Injectable()
 export class TypeOrmTenantRepository implements ITenantRepository {
+  private readonly repository: Repository<TenantEntity>;
+
   constructor(
     @InjectRepository(TenantEntity)
-    private readonly repository: Repository<TenantEntity>,
-  ) {}
+    repository: Repository<TenantEntity>,
+  ) {
+    this.repository = createTransactionAwareRepository(repository);
+  }
 
   async findById(id: string): Promise<Tenant | null> {
     const entity = await this.repository.findOne({ where: { id } });

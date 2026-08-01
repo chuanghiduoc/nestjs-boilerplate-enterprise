@@ -172,7 +172,7 @@ export class HealthService {
       const indicator = this.healthIndicators[index];
       return {
         name: indicator?.name || `indicator-${index}`,
-        status: 'unhealthy' as HealthStatus,
+        status: 'unhealthy',
         message: result.reason instanceof Error ? result.reason.message : 'Check failed',
       };
     });

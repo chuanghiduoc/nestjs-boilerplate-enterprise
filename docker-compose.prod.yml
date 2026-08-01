@@ -16,11 +16,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: runner  # Use production runner stage
+      target: runner # Use production runner stage
     container_name: nestjs-app-prod
     restart: always
     ports:
-      - "${PORT:-3000}:3000"
+      - '${PORT:-3000}:3000'
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -59,16 +59,24 @@ services:
         failure_action: rollback
         order: start-first
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/v1/health/live"]
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://127.0.0.1:3000/api/v1/health/live',
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
     networks:
       - nestjs-network
 
@@ -80,8 +88,8 @@ services:
     container_name: nestjs-nginx
     restart: always
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro

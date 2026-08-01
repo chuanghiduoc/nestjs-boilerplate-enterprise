@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan, IsNull } from 'typeorm';
 import { RefreshTokenEntity } from '../entities/refresh-token.entity';
+import { createTransactionAwareRepository } from '../base/transaction-context.typeorm';
 
 /**
  * Refresh Token Repository Interface
@@ -41,10 +42,14 @@ export interface CreateRefreshTokenData {
  */
 @Injectable()
 export class TypeOrmRefreshTokenRepository implements IRefreshTokenRepository {
+  private readonly repository: Repository<RefreshTokenEntity>;
+
   constructor(
     @InjectRepository(RefreshTokenEntity)
-    private readonly repository: Repository<RefreshTokenEntity>,
-  ) {}
+    repository: Repository<RefreshTokenEntity>,
+  ) {
+    this.repository = createTransactionAwareRepository(repository);
+  }
 
   async create(data: CreateRefreshTokenData): Promise<RefreshTokenEntity> {
     const entity = this.repository.create(data);
@@ -54,7 +59,7 @@ export class TypeOrmRefreshTokenRepository implements IRefreshTokenRepository {
   async findByToken(token: string): Promise<RefreshTokenEntity | null> {
     return this.repository.findOne({
       where: { token },
-      relations: ['user'],
+      relations: { user: true },
     });
   }
 

@@ -1,5 +1,6 @@
 import { Process, Processor, OnQueueActive, OnQueueCompleted, OnQueueFailed } from '@nestjs/bull';
 import { Inject, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { Job } from 'bull';
 import * as crypto from 'crypto';
 import { type ILogger, LOGGER } from '@core/domain/ports/services';
@@ -14,6 +15,7 @@ import {
 } from '../queues/notification-queue.service';
 import { WebSocketService } from '../../websocket/websocket.service';
 import { generateUUID } from '@shared/utils';
+import { assertSafeWebhookUrl, WEBHOOK_HEADER_DENYLIST } from './webhook-security';
 
 /**
  * Notification Processor
@@ -24,6 +26,7 @@ import { generateUUID } from '@shared/utils';
 export class NotificationProcessor {
   constructor(
     @Inject(LOGGER) private readonly logger: ILogger,
+    private readonly configService: ConfigService,
     @Optional() private readonly websocketService?: WebSocketService,
   ) {}
 
@@ -76,16 +79,23 @@ export class NotificationProcessor {
   @Process(NotificationJobType.WEBHOOK)
   async processWebhook(job: Job<WebhookNotificationData>): Promise<void> {
     const { url, method, headers, payload, secret } = job.data;
+    const allowedHosts = this.configService.get<string[]>('queue.webhook.allowedHosts', []);
+    const timeoutMs = this.configService.get<number>('queue.webhook.timeoutMs', 10000);
 
     this.logger.info('Processing webhook', {
-      url,
+      url: this.safeLogUrl(url),
       method,
     });
 
     try {
+      const safeUrl = await assertSafeWebhookUrl(url, allowedHosts);
       const requestHeaders: Record<string, string> = {
         'Content-Type': 'application/json',
-        ...headers,
+        ...Object.fromEntries(
+          Object.entries(headers ?? {}).filter(
+            ([name]) => !WEBHOOK_HEADER_DENYLIST.has(name.toLowerCase()),
+          ),
+        ),
       };
 
       // Add signature if secret provided
@@ -94,10 +104,12 @@ export class NotificationProcessor {
         requestHeaders['X-Webhook-Signature'] = signature;
       }
 
-      const response = await fetch(url, {
+      const response = await fetch(safeUrl, {
         method,
         headers: requestHeaders,
         body: JSON.stringify(payload),
+        redirect: 'error',
+        signal: AbortSignal.timeout(timeoutMs),
       });
 
       if (!response.ok) {
@@ -105,11 +117,11 @@ export class NotificationProcessor {
       }
 
       this.logger.debug('Webhook delivered successfully', {
-        url,
+        url: this.safeLogUrl(url),
         status: response.status,
       });
     } catch (error) {
-      this.logger.error('Webhook delivery failed', error as Error, { url });
+      this.logger.error('Webhook delivery failed', error as Error, { url: this.safeLogUrl(url) });
       throw error;
     }
   }
@@ -180,5 +192,16 @@ export class NotificationProcessor {
       return '****';
     }
     return `${phone.slice(0, 2)}***${phone.slice(-2)}`;
+  }
+
+  private safeLogUrl(value: string): string {
+    try {
+      const url = new URL(value);
+      url.search = '';
+      url.hash = '';
+      return url.toString();
+    } catch {
+      return '[invalid-url]';
+    }
   }
 }

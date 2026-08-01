@@ -7,10 +7,15 @@ import {
   type OnModuleInit,
 } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../../../generated/prisma/client';
 import { UNIT_OF_WORK } from '@core/domain/ports/repositories';
 import { EVENT_BUS, type IEventBus, type ILogger, LOGGER } from '@core/domain/ports/services';
-import { PrismaUnitOfWork, type PrismaClientWithTransaction } from './base/unit-of-work.prisma';
+import {
+  createTransactionAwarePrismaClient,
+  PrismaUnitOfWork,
+  type PrismaClientWithTransaction,
+} from './base/unit-of-work.prisma';
 
 // Repositories
 import { PrismaUserRepository } from './repositories/user.repository';
@@ -30,7 +35,7 @@ export const PRISMA_CLIENT = 'PRISMA_CLIENT';
  * Prisma Service
  *
  * Wraps PrismaClient with lifecycle hooks.
- * Requires: yarn add @prisma/client && yarn add -D prisma
+ * Requires: pnpm add @prisma/client && pnpm add -D prisma
  */
 class PrismaService implements OnModuleInit, OnModuleDestroy {
   private client: PrismaClient | null = null;
@@ -41,7 +46,13 @@ class PrismaService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      throw new Error('DATABASE_URL is required when DB_ORM=prisma');
+    }
+
     this.client = new PrismaClient({
+      adapter: new PrismaPg({ connectionString: databaseUrl }),
       log: this.logging ? ['query', 'info', 'warn', 'error'] : ['error'],
     });
 
@@ -70,7 +81,7 @@ class PrismaService implements OnModuleInit, OnModuleDestroy {
  * Provides Prisma client and Unit of Work for dependency injection.
  *
  * Prerequisites:
- * 1. Install: yarn add @prisma/client && yarn add -D prisma
+ * 1. Install: pnpm add @prisma/client && pnpm add -D prisma
  * 2. Initialize: npx prisma init
  * 3. Configure schema in prisma/schema.prisma
  * 4. Generate client: npx prisma generate
@@ -104,7 +115,8 @@ export class PrismaDatabaseModule implements OnModuleDestroy {
         // Prisma Client
         {
           provide: PRISMA_CLIENT,
-          useFactory: (prismaService: PrismaService) => prismaService.getClient(),
+          useFactory: (prismaService: PrismaService) =>
+            createTransactionAwarePrismaClient(prismaService.getClient()),
           inject: [PrismaService],
         },
         // Unit of Work

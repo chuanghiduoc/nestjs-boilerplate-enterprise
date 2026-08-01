@@ -13,6 +13,7 @@ import type {
 } from '@modules/role/domain/repositories/role.repository.interface';
 import { RoleEntity } from '../entities/role.entity';
 import { RoleMapper } from '../../mappers/role.mapper';
+import { createTransactionAwareRepository } from '../base/transaction-context.typeorm';
 
 /**
  * TypeORM Role Repository Implementation
@@ -23,10 +24,14 @@ import { RoleMapper } from '../../mappers/role.mapper';
  */
 @Injectable()
 export class TypeOrmRoleRepository implements IRoleRepository {
+  private readonly repository: Repository<RoleEntity>;
+
   constructor(
     @InjectRepository(RoleEntity)
-    private readonly repository: Repository<RoleEntity>,
-  ) {}
+    repository: Repository<RoleEntity>,
+  ) {
+    this.repository = createTransactionAwareRepository(repository);
+  }
 
   async findById(id: string): Promise<Role | null> {
     const entity = await this.repository.findOne({ where: { id } });

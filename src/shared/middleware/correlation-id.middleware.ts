@@ -21,7 +21,10 @@ export class CorrelationIdMiddleware implements NestMiddleware {
 
   use(req: Request, res: Response, next: NextFunction): void {
     // Extract from header or generate new
-    const correlationId = (req.headers['x-request-id'] as string) || generateRequestId();
+    const requestIdHeader = req.headers['x-request-id'];
+    const correlationId =
+      (Array.isArray(requestIdHeader) ? requestIdHeader[0] : requestIdHeader) ||
+      generateRequestId();
 
     // Attach to request for use in handlers
     req.correlationId = correlationId;
@@ -30,14 +33,14 @@ export class CorrelationIdMiddleware implements NestMiddleware {
     res.setHeader('X-Request-Id', correlationId);
 
     // Extract user info if available (will be populated by auth middleware later)
-    const user = req.user as { id?: string; tenantId?: string } | undefined;
+    const user = req.user;
 
     // Run the rest of the request in the log context
     this.logContext.run(
       {
         correlationId,
-        userId: user?.id,
-        tenantId: (req.headers['x-tenant-id'] as string) || user?.tenantId,
+        userId: user?.sub,
+        tenantId: this.firstHeaderValue(req.headers['x-tenant-id']) || user?.tenantId,
         method: req.method,
         path: req.url,
         ip: req.ip || req.socket?.remoteAddress,
@@ -47,5 +50,9 @@ export class CorrelationIdMiddleware implements NestMiddleware {
         next();
       },
     );
+  }
+
+  private firstHeaderValue(value: string | string[] | undefined): string | undefined {
+    return Array.isArray(value) ? value[0] : value;
   }
 }

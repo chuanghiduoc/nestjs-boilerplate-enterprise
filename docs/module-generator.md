@@ -30,7 +30,7 @@ This boilerplate uses [Hygen](https://www.hygen.io/) for code generation. Hygen 
 ### Generate Complete Module
 
 ```bash
-yarn generate:module
+pnpm generate:module
 ```
 
 You'll be prompted for:
@@ -41,7 +41,7 @@ You'll be prompted for:
 ### Example
 
 ```bash
-$ yarn generate:module
+$ pnpm generate:module
 
 ? Module name: product
 ? Description: Product catalog management
@@ -401,22 +401,22 @@ export class <%= h.changeCase.pascal(name) %>Module {}
 
 ```bash
 # Product catalog
-yarn generate:module
+pnpm generate:module
 # name: product
 # description: Product catalog management
 
 # Order management
-yarn generate:module
+pnpm generate:module
 # name: order
 # description: Order processing and management
 
 # Cart
-yarn generate:module
+pnpm generate:module
 # name: cart
 # description: Shopping cart functionality
 
 # Payment
-yarn generate:module
+pnpm generate:module
 # name: payment
 # description: Payment processing
 ```
@@ -468,7 +468,7 @@ TypeOrmModule.forFeature([
 ### Generate Entity Only
 
 ```bash
-yarn generate:entity
+pnpm generate:entity
 ```
 
 Creates only the domain entity without the full module structure.
@@ -476,7 +476,7 @@ Creates only the domain entity without the full module structure.
 ### Generate Use Case Only
 
 ```bash
-yarn generate:usecase
+pnpm generate:usecase
 ```
 
 Creates a single use case file.

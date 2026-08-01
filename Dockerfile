@@ -6,25 +6,29 @@
 # ----------------------------------------------
 # Stage 1: Dependencies
 # ----------------------------------------------
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 
 WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@11.18.0 --activate
 
 # Prisma's client is generated during install (postinstall) and needs openssl.
 RUN apk add --no-cache openssl
 
 # Install dependencies only (for caching).
 # The Prisma schema must be present so "prisma generate" (postinstall) succeeds.
-COPY package.json yarn.lock ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml prisma.config.ts ./
 COPY prisma ./prisma
-RUN yarn install --frozen-lockfile --production=false
+RUN pnpm install --frozen-lockfile --production=false
 
 # ----------------------------------------------
 # Stage 2: Builder
 # ----------------------------------------------
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@11.18.0 --activate
 
 # openssl is required when "prisma generate" re-runs during the production install.
 RUN apk add --no-cache openssl
@@ -34,16 +38,16 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Build the application (also copies runtime assets into dist via nest-cli)
-RUN yarn build
+RUN pnpm build
 
 # Remove dev dependencies
-RUN yarn install --frozen-lockfile --production=true && \
-    yarn cache clean
+RUN pnpm install --frozen-lockfile --production=true --ignore-scripts && \
+    pnpm store prune
 
 # ----------------------------------------------
 # Stage 3: Production Runner
 # ----------------------------------------------
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 
 WORKDIR /app
 
