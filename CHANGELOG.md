@@ -26,13 +26,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Mongoose**: removed duplicate indexes (`expiresAt` TTL, unique fields).
 - **Express 5 / NestJS 11 routing**: use named wildcards — file routes
   (`*path`) and the correlation-id middleware (`{*splat}`).
-- **Tooling**: pinned `packageManager` to `yarn@1.22.22` to stop lockfile
+- **Production build output**: disabled the stale incremental build cache for
+  production compilation so deleting `dist` cannot leave runtime modules missing.
+- **Tooling**: pinned `packageManager` to `pnpm@11.18.0` to stop lockfile
   drift under Corepack; the Prisma client is generated deterministically via a
   `postinstall` hook (with `openssl` and the schema available in the Docker
   build).
 
 ### Changed
 
+- Split the application into independently deployable API, Bull worker, and
+  singleton scheduler runtimes. The API only publishes jobs; processors and cron
+  providers are registered in their dedicated processes.
+- In-app notifications now cross the worker/API process boundary through Redis
+  Pub/Sub so every API replica can deliver to its locally connected sockets.
+- Development and production Compose configurations build one shared image and
+  run separate, independently resource-limited API, worker, and scheduler containers.
 - **Audit endpoints** now use the standard `{ data, meta: { pagination } }`
   envelope shared by the rest of the API.
 - The E2E harness applies the exact same runtime configuration as production

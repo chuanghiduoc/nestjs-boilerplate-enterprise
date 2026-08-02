@@ -200,18 +200,31 @@
 | **RoleModule**   | -            | RBAC management                |
 | **TenantModule** | -            | Multi-tenancy                  |
 
-### 3.3 Shared Modules (Import as needed)
+### 3.3 Infrastructure and Runtime Modules
 
-| Module                 | Purpose              | When to Import            |
-| ---------------------- | -------------------- | ------------------------- |
-| **MailModule**         | Email sending        | Need email functionality  |
-| **StorageModule**      | File upload/download | Need file handling        |
-| **QueueModule**        | Background jobs      | Need async processing     |
-| **NotificationModule** | Push notifications   | Need real-time alerts     |
-| **SearchModule**       | Full-text search     | Need search functionality |
-| **AuditModule**        | Audit logging        | Need compliance tracking  |
+| Module                  | Runtime    | Responsibility                                 |
+| ----------------------- | ---------- | ---------------------------------------------- |
+| **JobsModule**          | All        | Bull connection, queues, and producer services |
+| **JobProcessorsModule** | Worker     | Email, notification, and cleanup consumers     |
+| **JobSchedulersModule** | Scheduler  | Cron registration and scheduled job producers  |
+| **EmailModule**         | API/Worker | SMTP adapter and templates                     |
+| **StorageModule**       | API        | Local or S3 file storage                       |
+| **WebSocketModule**     | API        | Socket.io gateway and Redis event subscriber   |
+| **AuditModule**         | API        | Audit logging                                  |
 
-### 3.4 Module Dependency Rules
+### 3.4 Runtime Boundaries
+
+| Runtime   | Root module       | Owns                                           | Must not own          |
+| --------- | ----------------- | ---------------------------------------------- | --------------------- |
+| API       | `AppModule`       | HTTP, GraphQL, WebSocket, queue producers      | Bull processors, cron |
+| Worker    | `WorkerModule`    | Bull processors, database/cache/email adapters | HTTP listeners, cron  |
+| Scheduler | `SchedulerModule` | Cron providers and cleanup queue producers     | HTTP, job consumption |
+
+API and workers may scale independently. The scheduler is deployed as exactly one replica.
+Worker-originated in-app notifications use Redis Pub/Sub so every API replica can deliver
+the event to sockets connected locally.
+
+### 3.5 Module Dependency Rules
 
 | Rule                                  | Description                                 |
 | ------------------------------------- | ------------------------------------------- |
@@ -354,11 +367,11 @@
 
 ### 7.2 Messaging
 
-| Component         | Purpose               | Technology Options        |
-| ----------------- | --------------------- | ------------------------- |
-| **Message Queue** | Async job processing  | Bull (Redis), RabbitMQ    |
-| **Event Bus**     | Domain event dispatch | In-process, Redis Pub/Sub |
-| **Notification**  | Push notifications    | FCM, APNS, WebSocket      |
+| Component            | Purpose               | Technology Options          |
+| -------------------- | --------------------- | --------------------------- |
+| **Job Queue**        | Async job processing  | Bull backed by Redis        |
+| **Domain Event Bus** | Module event dispatch | In-process handlers         |
+| **Realtime Bridge**  | Worker-to-API fan-out | Redis Pub/Sub and WebSocket |
 
 ### 7.3 Observability
 
@@ -752,7 +765,8 @@ src/
 │   │   │   └── unit-of-work.ts     # Transaction management
 │   │   └── mappers/                # Entity ↔ Domain mappers (shared or per-ORM)
 │   ├── cache/                      # Cache implementations
-│   ├── messaging/                  # Message queue implementations
+│   ├── messaging/                  # In-process domain event bus
+│   ├── jobs/                       # Bull producers, consumers, schedulers
 │   ├── external/                   # External API adapters
 │   └── config/                     # Infrastructure configuration
 │
@@ -788,8 +802,12 @@ src/
 │   ├── database.config.ts          # Database configuration
 │   └── [feature].config.ts         # Feature configurations
 │
-├── app.module.ts                   # Root module
-└── main.ts                         # Application entry point
+├── app.module.ts                   # API root module
+├── worker.module.ts                # Worker root module
+├── scheduler.module.ts             # Scheduler root module
+├── main.ts                         # HTTP/GraphQL/WebSocket entry point
+├── main.worker.ts                  # Bull consumer entry point
+└── main.scheduler.ts               # Cron producer entry point
 ```
 
 ---
@@ -2328,11 +2346,23 @@ class SampledLogger {
 
 **Environment Configuration:**
 
-| Environment   | Purpose                | Replicas        | Database                   |
-| ------------- | ---------------------- | --------------- | -------------------------- |
-| `development` | Local development      | 1               | SQLite / Docker PostgreSQL |
-| `staging`     | Pre-production testing | 2               | PostgreSQL (shared)        |
-| `production`  | Live traffic           | 3+ (auto-scale) | PostgreSQL + Read Replicas |
+| Environment   | Purpose                | API replicas | Worker replicas | Scheduler replicas | Database                   |
+| ------------- | ---------------------- | ------------ | --------------- | ------------------ | -------------------------- |
+| `development` | Local development      | 1            | 1               | 1                  | SQLite / Docker PostgreSQL |
+| `staging`     | Pre-production testing | 2+           | 2+              | 1                  | PostgreSQL (shared)        |
+| `production`  | Live traffic           | 3+           | Load-dependent  | 1                  | PostgreSQL + Read Replicas |
+
+**Runtime deployment rules:**
+
+- Build one image containing all three compiled entrypoints.
+- Publish it in CI and deploy every runtime from the same immutable `APP_IMAGE`
+  reference (prefer a registry digest); production Compose never builds locally.
+- Run each entrypoint in a separate container/process with its own heap and event loop.
+- Scale API and workers independently.
+- Keep the scheduler at one replica to avoid duplicate cron publication.
+- Do not expose worker or scheduler ports; they are Nest application contexts, not HTTP servers.
+- Use the same Redis endpoint and `QUEUE_REALTIME_CHANNEL` across all runtimes.
+- Apply per-runtime CPU/memory limits; containers on the same host still share host capacity.
 
 **Deployment Methods:**
 
@@ -2562,6 +2592,30 @@ class SampledLogger {
 - (-) More boilerplate (separate entities, mappers)
 - (-) Slight performance overhead from mapping
 - (-) Team must understand and enforce boundaries
+
+---
+
+### 13.7 ADR-007: Separate API, Worker, and Scheduler Runtimes
+
+**Status:** Accepted
+
+**Context:** Bull processors and cron providers originally ran inside every API process. This
+coupled background load to request latency and caused every scaled API replica to register cron.
+
+**Decision:** Build one image with three entrypoints and run them as separate processes:
+
+- `main.ts` serves HTTP, GraphQL, and WebSocket traffic and publishes jobs.
+- `main.worker.ts` consumes Bull queues and owns worker-only adapters.
+- `main.scheduler.ts` registers cron providers and publishes scheduled jobs.
+
+**Consequences:**
+
+- (+) API and worker capacity scale independently.
+- (+) CPU-heavy or slow jobs cannot block the API event loop.
+- (+) A singleton scheduler prevents duplicate cron publication.
+- (+) One immutable image is promoted across all runtime roles.
+- (-) Redis becomes required runtime infrastructure.
+- (-) Deployments must manage three process roles and their resource budgets.
 
 ---
 

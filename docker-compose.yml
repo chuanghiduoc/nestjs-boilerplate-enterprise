@@ -8,21 +8,27 @@
 #   docker-compose down -v      # Stop and remove volumes
 # ==============================================
 
+x-runtime-image: &runtime-image
+  image: '${APP_IMAGE:-nestjs-boilerplate:dev}'
+  build:
+    context: .
+    dockerfile: Dockerfile
+    target: deps
+
 services:
   # ----------------------------------------------
   # API
   # ----------------------------------------------
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: deps # Use deps stage for development
+    <<: *runtime-image
     container_name: nestjs-app
     restart: unless-stopped
+    cpus: '${API_CPUS:-1.0}'
+    mem_limit: '${API_MEMORY_LIMIT:-512m}'
     working_dir: /app
     command: pnpm start:dev
     ports:
-      - '${PORT:-3000}:3000'
+      - '${APP_PORT:-3000}:3000'
       - '9229:9229' # Debug port
     volumes:
       - .:/app
@@ -30,7 +36,7 @@ services:
       - /app/dist # Isolate this watcher's build output
     environment:
       - NODE_ENV=development
-      - PORT=3000
+      - APP_PORT=3000
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USERNAME=${DB_USERNAME:-postgres}
@@ -39,8 +45,9 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
-      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-15m}
-      - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-7d}
+      - JWT_ACCESS_TOKEN_EXPIRES_IN=${JWT_ACCESS_TOKEN_EXPIRES_IN:-15m}
+      - JWT_REFRESH_TOKEN_EXPIRES_IN=${JWT_REFRESH_TOKEN_EXPIRES_IN:-7d}
+      - QUEUE_REALTIME_CHANNEL=${QUEUE_REALTIME_CHANNEL:-app:realtime}
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,12 +60,11 @@ services:
   # Background queue workers
   # ----------------------------------------------
   worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: deps
+    <<: *runtime-image
     container_name: nestjs-worker
     restart: unless-stopped
+    cpus: '${WORKER_CPUS:-1.0}'
+    mem_limit: '${WORKER_MEMORY_LIMIT:-512m}'
     working_dir: /app
     command: pnpm start:worker:dev
     volumes:
@@ -75,6 +81,14 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - CACHE_DRIVER=${CACHE_DRIVER:-memory}
+      - QUEUE_REALTIME_CHANNEL=${QUEUE_REALTIME_CHANNEL:-app:realtime}
+      - EMAIL_SMTP_HOST=${EMAIL_SMTP_HOST:-mailhog}
+      - EMAIL_SMTP_PORT=${EMAIL_SMTP_PORT:-1025}
+      - EMAIL_SMTP_SECURE=${EMAIL_SMTP_SECURE:-false}
+      - EMAIL_SMTP_USER=${EMAIL_SMTP_USER:-}
+      - EMAIL_SMTP_PASS=${EMAIL_SMTP_PASS:-}
+      - EMAIL_FROM_ADDRESS=${EMAIL_FROM_ADDRESS:-noreply@example.com}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-NestJS App}
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,12 +101,11 @@ services:
   # Singleton cron scheduler
   # ----------------------------------------------
   scheduler:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: deps
+    <<: *runtime-image
     container_name: nestjs-scheduler
     restart: unless-stopped
+    cpus: '${SCHEDULER_CPUS:-0.25}'
+    mem_limit: '${SCHEDULER_MEMORY_LIMIT:-256m}'
     working_dir: /app
     command: pnpm start:scheduler:dev
     volumes:
@@ -103,6 +116,7 @@ services:
       - NODE_ENV=development
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - QUEUE_REALTIME_CHANNEL=${QUEUE_REALTIME_CHANNEL:-app:realtime}
     depends_on:
       redis:
         condition: service_healthy
