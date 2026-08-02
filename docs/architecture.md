@@ -2355,6 +2355,8 @@ class SampledLogger {
 **Runtime deployment rules:**
 
 - Build one image containing all three compiled entrypoints.
+- Publish it in CI and deploy every runtime from the same immutable `APP_IMAGE`
+  reference (prefer a registry digest); production Compose never builds locally.
 - Run each entrypoint in a separate container/process with its own heap and event loop.
 - Scale API and workers independently.
 - Keep the scheduler at one replica to avoid duplicate cron publication.

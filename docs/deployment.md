@@ -41,11 +41,9 @@ Guide for deploying NestJS Enterprise Boilerplate to production.
 ### Build Image
 
 ```bash
-# Build production image
-docker build -t nestjs-app:latest .
-
-# Build with specific tag
+# Build once in CI, then push a versioned image
 docker build -t nestjs-app:v1.0.0 .
+docker push your-registry/nestjs-app:v1.0.0
 ```
 
 ### Dockerfile
@@ -80,7 +78,9 @@ environment variables.
 Use managed or separately operated PostgreSQL/Redis in production. Unlike the development
 Compose file, the production Compose file intentionally does not provision them.
 
-All three Nest runtimes reference the same `APP_IMAGE:APP_IMAGE_TAG`. They are separate
+All three Nest runtimes require the same immutable `APP_IMAGE` reference (prefer a registry
+digest such as `your-registry/nestjs-app@sha256:<digest>`). Production Compose has no local
+build fallback, so the artifact tested in CI is exactly the artifact deployed. They are separate
 containers—not three processes in one container—and can be scheduled on different hosts.
 Compose enforces independent limits through `API_CPUS`/`API_MEMORY_LIMIT`,
 `WORKER_CPUS`/`WORKER_MEMORY_LIMIT`, and `SCHEDULER_CPUS`/`SCHEDULER_MEMORY_LIMIT`.
@@ -88,8 +88,9 @@ Compose enforces independent limits through `API_CPUS`/`API_MEMORY_LIMIT`,
 ### Run with Docker Compose
 
 ```bash
-# Start services
-docker compose -f docker-compose.prod.yml up -d
+# Set one explicit, immutable image reference for every Compose operation
+export APP_IMAGE=your-registry/nestjs-app@sha256:<digest>
+docker compose -f docker-compose.prod.yml up -d --no-build
 
 # View all three application runtimes
 docker compose -f docker-compose.prod.yml logs -f app worker scheduler
@@ -145,7 +146,7 @@ spec:
     spec:
       containers:
         - name: nestjs-api
-          image: your-registry/nestjs-app:latest
+          image: your-registry/nestjs-app@sha256:<digest>
           ports:
             - containerPort: 3000
           envFrom:
@@ -202,13 +203,20 @@ spec:
     spec:
       containers:
         - name: worker
-          image: your-registry/nestjs-app:latest
+          image: your-registry/nestjs-app@sha256:<digest>
           command: ['node', 'dist/main.worker.js']
           envFrom:
             - configMapRef:
                 name: nestjs-app-config
             - secretRef:
                 name: nestjs-app-secrets
+          resources:
+            requests:
+              cpu: '250m'
+              memory: '256Mi'
+            limits:
+              cpu: '1000m'
+              memory: '512Mi'
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -216,6 +224,8 @@ metadata:
   name: nestjs-scheduler
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: nestjs-scheduler
@@ -226,13 +236,20 @@ spec:
     spec:
       containers:
         - name: scheduler
-          image: your-registry/nestjs-app:latest
+          image: your-registry/nestjs-app@sha256:<digest>
           command: ['node', 'dist/main.scheduler.js']
           envFrom:
             - configMapRef:
                 name: nestjs-app-config
             - secretRef:
                 name: nestjs-app-secrets
+          resources:
+            requests:
+              cpu: '100m'
+              memory: '128Mi'
+            limits:
+              cpu: '250m'
+              memory: '256Mi'
 ```
 
 ### Service
@@ -643,13 +660,9 @@ Structured JSON logs for log aggregation:
 ### Docker
 
 ```bash
-# Keep previous image tags
-docker tag nestjs-app:latest nestjs-app:previous
-
-# Rollback
-docker compose -f docker-compose.prod.yml down
-docker tag nestjs-app:previous nestjs-app:latest
-docker compose -f docker-compose.prod.yml up -d
+# Redeploy all roles from the previously recorded immutable digest
+APP_IMAGE=your-registry/nestjs-app@sha256:<previous-digest> \
+  docker compose -f docker-compose.prod.yml up -d --no-build
 ```
 
 ### Kubernetes
@@ -657,12 +670,18 @@ docker compose -f docker-compose.prod.yml up -d
 ```bash
 # View rollout history
 kubectl rollout history deployment/nestjs-api
+kubectl rollout history deployment/nestjs-worker
+kubectl rollout history deployment/nestjs-scheduler
 
 # Rollback to previous version
 kubectl rollout undo deployment/nestjs-api
+kubectl rollout undo deployment/nestjs-worker
+kubectl rollout undo deployment/nestjs-scheduler
 
 # Rollback to specific revision
 kubectl rollout undo deployment/nestjs-api --to-revision=2
+kubectl rollout undo deployment/nestjs-worker --to-revision=2
+kubectl rollout undo deployment/nestjs-scheduler --to-revision=2
 ```
 
 ### Database

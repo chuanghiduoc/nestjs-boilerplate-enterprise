@@ -3,17 +3,13 @@
 # Section 12.8: Deployment Strategy
 # ==============================================
 # Usage:
-#   docker-compose -f docker-compose.prod.yml up -d
+#   APP_IMAGE=registry.example/app@sha256:<digest> docker compose -f docker-compose.prod.yml up -d --no-build
 #   docker-compose -f docker-compose.prod.yml logs -f
 #   docker-compose -f docker-compose.prod.yml down
 # ==============================================
 
 x-runtime-image: &runtime-image
-  image: '${APP_IMAGE:-nestjs-boilerplate}:${APP_IMAGE_TAG:-latest}'
-  build:
-    context: .
-    dockerfile: Dockerfile
-    target: runner
+  image: '${APP_IMAGE:?Set APP_IMAGE to an immutable production image reference}'
 
 services:
   # ----------------------------------------------
@@ -25,10 +21,10 @@ services:
     cpus: '${API_CPUS:-1.0}'
     mem_limit: '${API_MEMORY_LIMIT:-512m}'
     ports:
-      - '${PORT:-3000}:3000'
+      - '${APP_PORT:-3000}:3000'
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - APP_PORT=3000
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT:-5432}
       - DB_USERNAME=${DB_USERNAME}
@@ -40,8 +36,8 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - QUEUE_REALTIME_CHANNEL=${QUEUE_REALTIME_CHANNEL:-app:realtime}
       - JWT_SECRET=${JWT_SECRET}
-      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-15m}
-      - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-7d}
+      - JWT_ACCESS_TOKEN_EXPIRES_IN=${JWT_ACCESS_TOKEN_EXPIRES_IN:-15m}
+      - JWT_REFRESH_TOKEN_EXPIRES_IN=${JWT_REFRESH_TOKEN_EXPIRES_IN:-7d}
       - CORS_ORIGINS=${CORS_ORIGINS}
       - LOG_LEVEL=${LOG_LEVEL:-info}
     deploy:
@@ -49,8 +45,8 @@ services:
       replicas: ${APP_REPLICAS:-2}
       resources:
         limits:
-          cpus: '1'
-          memory: 512M
+          cpus: '${API_CPUS:-1.0}'
+          memory: '${API_MEMORY_LIMIT:-512m}'
         reservations:
           cpus: '0.25'
           memory: 256M
@@ -108,14 +104,21 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - CACHE_DRIVER=${CACHE_DRIVER:-redis}
       - QUEUE_REALTIME_CHANNEL=${QUEUE_REALTIME_CHANNEL:-app:realtime}
+      - EMAIL_SMTP_HOST=${EMAIL_SMTP_HOST}
+      - EMAIL_SMTP_PORT=${EMAIL_SMTP_PORT:-587}
+      - EMAIL_SMTP_SECURE=${EMAIL_SMTP_SECURE:-false}
+      - EMAIL_SMTP_USER=${EMAIL_SMTP_USER}
+      - EMAIL_SMTP_PASS=${EMAIL_SMTP_PASS}
+      - EMAIL_FROM_ADDRESS=${EMAIL_FROM_ADDRESS}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME}
       - LOG_LEVEL=${LOG_LEVEL:-info}
     deploy:
       mode: replicated
       replicas: ${WORKER_REPLICAS:-2}
       resources:
         limits:
-          cpus: '1'
-          memory: 512M
+          cpus: '${WORKER_CPUS:-1.0}'
+          memory: '${WORKER_MEMORY_LIMIT:-512m}'
         reservations:
           cpus: '0.25'
           memory: 256M
@@ -147,8 +150,8 @@ services:
       replicas: 1
       resources:
         limits:
-          cpus: '0.25'
-          memory: 256M
+          cpus: '${SCHEDULER_CPUS:-0.25}'
+          memory: '${SCHEDULER_MEMORY_LIMIT:-256m}'
         reservations:
           cpus: '0.1'
           memory: 128M

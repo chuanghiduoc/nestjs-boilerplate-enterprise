@@ -28,7 +28,7 @@ Complete guide for installing and using NestJS Enterprise Boilerplate.
 
 | Database   | Version | Use Case                   |
 | ---------- | ------- | -------------------------- |
-| PostgreSQL | >= 14.x | Recommended for production |
+| PostgreSQL | >= 16.x | Recommended for production |
 | MongoDB    | >= 6.x  | Document-based storage     |
 | SQLite     | -       | Development/testing only   |
 

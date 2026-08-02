@@ -144,7 +144,8 @@ Interactive Swagger docs (non-production only): `http://localhost:3000/docs`
 docker compose up -d
 
 # Production
-docker compose -f docker-compose.prod.yml up -d
+APP_IMAGE=your-registry/nestjs-app@sha256:<digest> \
+  docker compose -f docker-compose.prod.yml up -d --no-build
 ```
 
 <br/>
