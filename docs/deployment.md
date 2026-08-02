@@ -171,15 +171,29 @@ volumes:
 # Start services
 docker-compose -f docker-compose.prod.yml up -d
 
-# View logs
-docker-compose -f docker-compose.prod.yml logs -f app
+# View all three application runtimes
+docker-compose -f docker-compose.prod.yml logs -f app worker scheduler
 
-# Scale application
+# Scale API and workers independently. Do not scale scheduler above one.
 docker-compose -f docker-compose.prod.yml up -d --scale app=3
+docker-compose -f docker-compose.prod.yml up -d --scale worker=5
 
 # Stop services
 docker-compose -f docker-compose.prod.yml down
 ```
+
+The production image contains three entrypoints:
+
+| Runtime   | Command                       | Scaling rule        |
+| --------- | ----------------------------- | ------------------- |
+| API       | `node dist/main.js`           | Multiple replicas   |
+| Worker    | `node dist/main.worker.js`    | Multiple replicas   |
+| Scheduler | `node dist/main.scheduler.js` | Exactly one replica |
+
+API instances only enqueue jobs. Workers consume them, while the scheduler owns
+all cron registration. In-app notification results are published through the
+Redis channel configured by `QUEUE_REALTIME_CHANNEL`; every API replica subscribes
+and delivers the event to its locally connected WebSocket clients.
 
 ---
 

@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
-import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import type { QueueConfig } from '@config/queue.config';
 
@@ -9,22 +8,19 @@ import { EmailQueueModule } from './queues/email-queue.module';
 import { NotificationQueueModule } from './queues/notification-queue.module';
 import { CleanupQueueModule } from './queues/cleanup-queue.module';
 
-// Schedulers
-import { TokenCleanupScheduler } from './schedulers/token-cleanup.scheduler';
-import { SessionCleanupScheduler } from './schedulers/session-cleanup.scheduler';
-import { ReportScheduler } from './schedulers/report.scheduler';
-
 /**
  * Jobs Module
  *
- * Provides background job processing and scheduled tasks.
+ * Provides queue clients and job producers.
+ *
+ * This module is safe to load in the API runtime: processors and cron
+ * schedulers live in JobProcessorsModule and JobSchedulersModule so an API
+ * replica never consumes or schedules background work.
  *
  * Features:
  * - Bull queue for async job processing
  * - Redis-backed job persistence
  * - Job retry with exponential backoff
- * - Scheduled/cron tasks
- * - Job event monitoring
  *
  * Queue Types:
  * - email: Email sending (welcome, verification, reset)
@@ -60,19 +56,10 @@ import { ReportScheduler } from './schedulers/report.scheduler';
       inject: [ConfigService],
     }),
 
-    // Schedule Module for Cron Jobs
-    ScheduleModule.forRoot(),
-
     // Queue Modules
     EmailQueueModule,
     NotificationQueueModule,
     CleanupQueueModule,
-  ],
-  providers: [
-    // Schedulers
-    TokenCleanupScheduler,
-    SessionCleanupScheduler,
-    ReportScheduler,
   ],
   exports: [EmailQueueModule, NotificationQueueModule, CleanupQueueModule],
 })

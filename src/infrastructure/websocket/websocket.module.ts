@@ -5,6 +5,7 @@ import { NotificationGateway } from './gateways/notification.gateway';
 import { WebSocketService } from './websocket.service';
 import { PresenceService } from './presence.service';
 import type { JwtConfig } from '@config/jwt.config';
+import { RealtimeSubscriberService } from './realtime-subscriber.service';
 
 /**
  * WebSocket Module
@@ -37,7 +38,7 @@ import type { JwtConfig } from '@config/jwt.config';
       },
     }),
   ],
-  providers: [NotificationGateway, WebSocketService, PresenceService],
+  providers: [NotificationGateway, WebSocketService, PresenceService, RealtimeSubscriberService],
   exports: [WebSocketService, PresenceService],
 })
 export class WebSocketModule {}

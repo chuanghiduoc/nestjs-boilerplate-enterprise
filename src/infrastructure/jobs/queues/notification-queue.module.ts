@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { NotificationQueueService } from './notification-queue.service';
-import { NotificationProcessor } from '../processors/notification.processor';
 import { NOTIFICATION_QUEUE } from './queue.constants';
 
 /**
@@ -30,7 +29,7 @@ import { NOTIFICATION_QUEUE } from './queue.constants';
       },
     }),
   ],
-  providers: [NotificationQueueService, NotificationProcessor],
-  exports: [NotificationQueueService],
+  providers: [NotificationQueueService],
+  exports: [BullModule, NotificationQueueService],
 })
 export class NotificationQueueModule {}

@@ -1,5 +1,5 @@
 import { Process, Processor, OnQueueActive, OnQueueCompleted, OnQueueFailed } from '@nestjs/bull';
-import { Inject, Optional } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Job } from 'bull';
 import * as crypto from 'crypto';
@@ -13,9 +13,9 @@ import {
   type SmsNotificationData,
   type InAppNotificationData,
 } from '../queues/notification-queue.service';
-import { WebSocketService } from '../../websocket/websocket.service';
 import { generateUUID } from '@shared/utils';
 import { assertSafeWebhookUrl, WEBHOOK_HEADER_DENYLIST } from './webhook-security';
+import { RealtimePublisherService } from '../realtime/realtime-publisher.service';
 
 /**
  * Notification Processor
@@ -27,7 +27,7 @@ export class NotificationProcessor {
   constructor(
     @Inject(LOGGER) private readonly logger: ILogger,
     private readonly configService: ConfigService,
-    @Optional() private readonly websocketService?: WebSocketService,
+    private readonly realtimePublisher: RealtimePublisherService,
   ) {}
 
   @OnQueueActive()
@@ -143,7 +143,7 @@ export class NotificationProcessor {
   }
 
   @Process(NotificationJobType.IN_APP)
-  processInApp(job: Job<InAppNotificationData>): void {
+  async processInApp(job: Job<InAppNotificationData>): Promise<void> {
     const { userId, title, message, link, metadata } = job.data;
 
     this.logger.info('Processing in-app notification', {
@@ -151,27 +151,16 @@ export class NotificationProcessor {
       title,
     });
 
-    // Emit WebSocket event for real-time notification
-    if (this.websocketService) {
-      this.websocketService.sendNotification(userId, {
-        id: generateUUID(),
-        type: 'in-app',
-        title,
-        message,
-        data: { link, ...metadata },
-        createdAt: new Date(),
-        read: false,
-      });
-      this.logger.debug('In-app notification sent via WebSocket', {
-        userId,
-        title,
-      });
-    } else {
-      this.logger.warn('WebSocketService not available, notification not delivered in real-time', {
-        userId,
-        title,
-      });
-    }
+    await this.realtimePublisher.publishNotification(userId, {
+      id: generateUUID(),
+      type: 'in-app',
+      title,
+      message,
+      data: { link, ...metadata },
+      createdAt: new Date(),
+      read: false,
+    });
+    this.logger.debug('In-app notification published for WebSocket delivery', { userId, title });
 
     // Note: For persistent notifications, a NotificationRepository would be needed
     // to store notifications in the database for later retrieval

@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { CleanupQueueService } from './cleanup-queue.service';
-import { CleanupProcessor } from '../processors/cleanup.processor';
 import { CLEANUP_QUEUE } from './queue.constants';
 
 /**
@@ -30,7 +29,7 @@ import { CLEANUP_QUEUE } from './queue.constants';
       },
     }),
   ],
-  providers: [CleanupQueueService, CleanupProcessor],
-  exports: [CleanupQueueService],
+  providers: [CleanupQueueService],
+  exports: [BullModule, CleanupQueueService],
 })
 export class CleanupQueueModule {}

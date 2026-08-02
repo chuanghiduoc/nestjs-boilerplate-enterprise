@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { EmailQueueService } from './email-queue.service';
-import { EmailProcessor } from '../processors/email.processor';
 import { EMAIL_QUEUE } from './queue.constants';
 
 /**
@@ -30,7 +29,7 @@ import { EMAIL_QUEUE } from './queue.constants';
       },
     }),
   ],
-  providers: [EmailQueueService, EmailProcessor],
-  exports: [EmailQueueService],
+  providers: [EmailQueueService],
+  exports: [BullModule, EmailQueueService],
 })
 export class EmailQueueModule {}
