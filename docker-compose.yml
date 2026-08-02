@@ -10,7 +10,7 @@
 
 services:
   # ----------------------------------------------
-  # Application
+  # API
   # ----------------------------------------------
   app:
     build:
@@ -27,6 +27,7 @@ services:
     volumes:
       - .:/app
       - /app/node_modules # Preserve container's node_modules
+      - /app/dist # Isolate this watcher's build output
     environment:
       - NODE_ENV=development
       - PORT=3000
@@ -43,6 +44,66 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - nestjs-network
+
+  # ----------------------------------------------
+  # Background queue workers
+  # ----------------------------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: deps
+    container_name: nestjs-worker
+    restart: unless-stopped
+    working_dir: /app
+    command: pnpm start:worker:dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/dist
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=${DB_USERNAME:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_DATABASE=${DB_DATABASE:-nestjs_dev}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CACHE_DRIVER=${CACHE_DRIVER:-memory}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - nestjs-network
+
+  # ----------------------------------------------
+  # Singleton cron scheduler
+  # ----------------------------------------------
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: deps
+    container_name: nestjs-scheduler
+    restart: unless-stopped
+    working_dir: /app
+    command: pnpm start:scheduler:dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/dist
+    environment:
+      - NODE_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
       redis:
         condition: service_healthy
     networks:

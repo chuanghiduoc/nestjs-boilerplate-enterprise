@@ -57,6 +57,7 @@
       "@modules/*": ["./src/modules/*"]
     },
     "incremental": true,
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "skipLibCheck": true
   },
   "include": ["src/**/*"],

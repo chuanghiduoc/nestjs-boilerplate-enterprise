@@ -17,7 +17,6 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runner # Use production runner stage
-    container_name: nestjs-app-prod
     restart: always
     ports:
       - '${PORT:-3000}:3000'
@@ -33,6 +32,7 @@ services:
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - QUEUE_REALTIME_CHANNEL=${QUEUE_REALTIME_CHANNEL:-app:realtime}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-15m}
       - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-7d}
@@ -77,6 +77,74 @@ services:
       options:
         max-size: '10m'
         max-file: '3'
+    networks:
+      - nestjs-network
+
+  # ----------------------------------------------
+  # Background queue workers (independently scalable)
+  # ----------------------------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    command: ['node', 'dist/main.worker.js']
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_SSL=${DB_SSL:-true}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - CACHE_DRIVER=${CACHE_DRIVER:-redis}
+      - QUEUE_REALTIME_CHANNEL=${QUEUE_REALTIME_CHANNEL:-app:realtime}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    deploy:
+      mode: replicated
+      replicas: ${WORKER_REPLICAS:-2}
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      disable: true
+    networks:
+      - nestjs-network
+
+  # ----------------------------------------------
+  # Singleton cron scheduler (must remain one replica)
+  # ----------------------------------------------
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    command: ['node', 'dist/main.scheduler.js']
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - QUEUE_REALTIME_CHANNEL=${QUEUE_REALTIME_CHANNEL:-app:realtime}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      disable: true
     networks:
       - nestjs-network
 

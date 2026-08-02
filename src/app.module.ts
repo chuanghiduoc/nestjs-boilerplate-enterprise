@@ -48,7 +48,7 @@ import { AuditModule } from './modules/audit';
  * - MetricsModule: Prometheus metrics & OpenTelemetry tracing
  * - StorageModule: File storage (Local/S3)
  * - EmailModule: SMTP email delivery with templates
- * - JobsModule: Background jobs (Bull queue) and scheduled tasks
+ * - JobsModule: Bull queue producers only (consumers and cron run separately)
  * - WebSocketModule: Real-time communication and notifications
  * - I18nModule: Internationalization and translations
  * - GraphQLModule: GraphQL API with Apollo Server

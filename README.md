@@ -63,7 +63,7 @@ Building enterprise applications requires more than just a framework. You need a
 ### Infrastructure
 
 - [x] **Caching** - Redis with decorator-based caching
-- [x] **Background Jobs** - Bull queue with processors
+- [x] **Background Jobs** - Independently scalable Bull workers and singleton scheduler
 - [x] **File Storage** - S3 and local storage adapters
 - [x] **Email** - SMTP with Handlebars templates
 - [x] **WebSocket** - Real-time with Socket.io
@@ -271,8 +271,24 @@ src/
 │   ├── interceptors/
 │   └── utils/
 │
-└── main.ts                    # Application entry point
+├── main.ts                    # HTTP/GraphQL/WebSocket API entry point
+├── main.worker.ts             # Bull queue consumer entry point
+└── main.scheduler.ts          # Singleton cron producer entry point
 ```
+
+### Runtime topology
+
+The application is built once and started as three independently deployable runtimes:
+
+```text
+API replicas      -> publish Bull jobs, serve HTTP/GraphQL/WebSocket
+Worker replicas   -> consume email, notification, and cleanup queues
+Scheduler (1)     -> run cron expressions and publish cleanup jobs
+Redis             -> Bull persistence and worker-to-API realtime fan-out
+```
+
+Processors are never registered in the API process, and cron providers are only
+registered in the scheduler process. Keep the scheduler at exactly one replica.
 
 ### Module Structure (DDD)
 
@@ -325,9 +341,13 @@ modules/{feature}/
 
 ```bash
 pnpm start:dev          # Start with hot-reload
+pnpm start:worker:dev   # Start Bull consumers with hot-reload
+pnpm start:scheduler:dev # Start the singleton cron scheduler
 pnpm start:debug        # Start with debugger attached
 pnpm build              # Build for production
 pnpm start:prod         # Run production build
+pnpm start:worker:prod  # Run compiled Bull consumers
+pnpm start:scheduler:prod # Run compiled cron scheduler
 ```
 
 </details>

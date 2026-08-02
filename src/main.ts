@@ -7,6 +7,7 @@ import { setupSwagger } from './config/swagger.config';
 import type { AppConfig } from './config/app.config';
 
 async function bootstrap(): Promise<void> {
+  process.title = 'nestjs-api';
   const logger = new Logger('Bootstrap');
 
   const app = await NestFactory.create(AppModule, {
