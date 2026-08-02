@@ -18,11 +18,11 @@ Complete guide for installing and using NestJS Enterprise Boilerplate.
 
 ### Required
 
-| Software | Version     | Installation                        |
-| -------- | ----------- | ----------------------------------- |
-| Node.js  | >= 20.x LTS | [nodejs.org](https://nodejs.org/)   |
-| pnpm     | >= 11.0.0   | `corepack enable`                   |
-| Git      | Latest      | [git-scm.com](https://git-scm.com/) |
+| Software | Version   | Installation                        |
+| -------- | --------- | ----------------------------------- |
+| Node.js  | >= 24.x   | [nodejs.org](https://nodejs.org/)   |
+| pnpm     | >= 11.0.0 | `corepack enable`                   |
+| Git      | Latest    | [git-scm.com](https://git-scm.com/) |
 
 ### Database (choose one)
 
@@ -32,13 +32,13 @@ Complete guide for installing and using NestJS Enterprise Boilerplate.
 | MongoDB    | >= 6.x  | Document-based storage     |
 | SQLite     | -       | Development/testing only   |
 
-### Optional
+### Runtime infrastructure
 
-| Software       | Version | Purpose                       |
-| -------------- | ------- | ----------------------------- |
-| Redis          | >= 6.x  | Caching, sessions, queues     |
-| Docker         | >= 20.x | Containerization              |
-| Docker Compose | >= 2.x  | Multi-container orchestration |
+| Software       | Version | Purpose                                       |
+| -------------- | ------- | --------------------------------------------- |
+| Redis          | >= 7.x  | Bull queues and worker-to-API realtime events |
+| Docker         | >= 20.x | Optional container runtime                    |
+| Docker Compose | >= 2.x  | Optional local orchestration                  |
 
 ---
 
@@ -116,13 +116,13 @@ pnpm db:seed
 DATABASE_URL=postgresql://postgres:password@localhost:5432/app_db
 
 # 2. Generate Prisma Client
-npx prisma generate
+pnpm exec prisma generate
 
 # 3. Run migrations
-npx prisma migrate dev --name init
+pnpm exec prisma migrate dev --name init
 
 # 4. (Optional) Seed data
-npx prisma db seed
+pnpm exec prisma db seed
 ```
 
 ### Using MongoDB (Mongoose)
@@ -143,21 +143,20 @@ mongod --dbpath /path/to/data
 Fastest way to setup development environment:
 
 ```bash
-# Start PostgreSQL + Redis
-docker-compose up -d
+# Start API, worker, scheduler, PostgreSQL, and Redis
+docker compose up -d
 
-# Run migrations
-pnpm migration:run
-
-# Start application
-pnpm start:dev
+# Optional developer tools: pgAdmin, Redis Commander, and MailHog
+docker compose --profile tools up -d
 ```
 
 **docker-compose.yml** includes:
 
-- PostgreSQL 14
-- Redis 6
-- Adminer (Database UI)
+- API with hot reload
+- Independently running Bull worker
+- Singleton cron scheduler
+- PostgreSQL 16 and Redis 7
+- Optional pgAdmin, Redis Commander, and MailHog via the `tools` profile
 
 ---
 
@@ -172,8 +171,8 @@ The `.env.example` file contains all required environment variables:
 # APPLICATION
 # ============================================
 NODE_ENV=development
-PORT=3000
-APP_NAME=nestjs-app
+APP_NAME=nestjs-boilerplate
+APP_PORT=3000
 API_PREFIX=api
 # Numeric only — URI versioning prepends "v" (1 -> /api/v1)
 API_VERSION=1
@@ -183,14 +182,14 @@ API_VERSION=1
 # ============================================
 # TypeORM/Prisma (PostgreSQL)
 DB_TYPE=postgres
+DB_ORM=typeorm
 DB_HOST=localhost
 DB_PORT=5432
 DB_DATABASE=app_db
 DB_USERNAME=postgres
 DB_PASSWORD=postgres
-# DB_ORM=prisma  # optional: switch SQL ORM to Prisma (defaults to typeorm)
 # DATABASE_URL is used by Prisma only
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app_db
+# DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app_db
 
 # Mongoose (MongoDB)
 # DB_TYPE=mongodb
@@ -200,16 +199,15 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app_db
 # AUTHENTICATION
 # ============================================
 JWT_SECRET=change-this-in-production-use-long-random-string
-JWT_EXPIRES_IN=15m
-JWT_REFRESH_SECRET=change-this-refresh-secret-too
-JWT_REFRESH_EXPIRES_IN=7d
+JWT_ACCESS_TOKEN_EXPIRES_IN=15m
+JWT_REFRESH_TOKEN_EXPIRES_IN=7d
 
 # ============================================
-# REDIS (Optional)
+# REDIS / QUEUES
 # ============================================
 REDIS_HOST=localhost
 REDIS_PORT=6379
-REDIS_PASSWORD=
+QUEUE_REALTIME_CHANNEL=app:realtime
 
 # ============================================
 # OAUTH (Optional)
@@ -225,24 +223,24 @@ FACEBOOK_CALLBACK_URL=http://localhost:3000/api/v1/auth/facebook/callback
 # ============================================
 # EMAIL (Optional)
 # ============================================
-SMTP_HOST=smtp.mailtrap.io
-SMTP_PORT=587
-SMTP_USER=
-SMTP_PASSWORD=
-EMAIL_FROM=noreply@example.com
+EMAIL_SMTP_HOST=localhost
+EMAIL_SMTP_PORT=1025
+EMAIL_SMTP_USER=
+EMAIL_SMTP_PASS=
+EMAIL_FROM_ADDRESS=noreply@example.com
 
 # ============================================
 # STORAGE (Optional)
 # ============================================
-STORAGE_TYPE=local
-UPLOAD_DIR=./uploads
+STORAGE_DRIVER=local
+STORAGE_LOCAL_PATH=./uploads
 
 # S3 Configuration
-# STORAGE_TYPE=s3
-# AWS_S3_BUCKET=your-bucket
-# AWS_ACCESS_KEY_ID=
-# AWS_SECRET_ACCESS_KEY=
-# AWS_REGION=us-east-1
+# STORAGE_DRIVER=s3
+# STORAGE_S3_BUCKET=your-bucket
+# STORAGE_S3_ACCESS_KEY_ID=
+# STORAGE_S3_SECRET_ACCESS_KEY=
+# STORAGE_S3_REGION=us-east-1
 ```
 
 ### Config Modules
@@ -268,12 +266,19 @@ Configuration is organized in `src/config/`:
 ### Development Mode
 
 ```bash
-# With hot-reload
+# Terminal 1: HTTP/GraphQL/WebSocket API
 pnpm start:dev
 
-# With debugger (attach VS Code)
-pnpm start:debug
+# Terminal 2: Bull queue consumers
+pnpm start:worker:dev
+
+# Terminal 3: singleton cron scheduler
+pnpm start:scheduler:dev
 ```
+
+The API process only publishes jobs. It does not register Bull processors or cron providers.
+All runtimes use the same build artifact but execute in separate Node.js processes. When using
+Compose, CPU and memory limits can be tuned independently through the variables in `.env.example`.
 
 ### Production Mode
 
@@ -281,18 +286,20 @@ pnpm start:debug
 # Build
 pnpm build
 
-# Start
+# Start the three compiled runtimes in separate processes
 pnpm start:prod
+pnpm start:worker:prod
+pnpm start:scheduler:prod
 ```
 
 ### Docker Mode
 
 ```bash
 # Development
-docker-compose up
+docker compose up
 
 # Production
-docker-compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 ---

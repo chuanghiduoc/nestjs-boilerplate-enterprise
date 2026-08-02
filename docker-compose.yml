@@ -8,17 +8,23 @@
 #   docker-compose down -v      # Stop and remove volumes
 # ==============================================
 
+x-runtime-image: &runtime-image
+  image: '${APP_IMAGE:-nestjs-boilerplate}:${APP_IMAGE_TAG:-dev}'
+  build:
+    context: .
+    dockerfile: Dockerfile
+    target: deps
+
 services:
   # ----------------------------------------------
   # API
   # ----------------------------------------------
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: deps # Use deps stage for development
+    <<: *runtime-image
     container_name: nestjs-app
     restart: unless-stopped
+    cpus: '${API_CPUS:-1.0}'
+    mem_limit: '${API_MEMORY_LIMIT:-512m}'
     working_dir: /app
     command: pnpm start:dev
     ports:
@@ -53,12 +59,11 @@ services:
   # Background queue workers
   # ----------------------------------------------
   worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: deps
+    <<: *runtime-image
     container_name: nestjs-worker
     restart: unless-stopped
+    cpus: '${WORKER_CPUS:-1.0}'
+    mem_limit: '${WORKER_MEMORY_LIMIT:-512m}'
     working_dir: /app
     command: pnpm start:worker:dev
     volumes:
@@ -87,12 +92,11 @@ services:
   # Singleton cron scheduler
   # ----------------------------------------------
   scheduler:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: deps
+    <<: *runtime-image
     container_name: nestjs-scheduler
     restart: unless-stopped
+    cpus: '${SCHEDULER_CPUS:-0.25}'
+    mem_limit: '${SCHEDULER_MEMORY_LIMIT:-256m}'
     working_dir: /app
     command: pnpm start:scheduler:dev
     volumes:

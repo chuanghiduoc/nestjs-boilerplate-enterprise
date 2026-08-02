@@ -5,14 +5,14 @@
 <br/>
 <br/>
 
-[![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![NestJS](https://img.shields.io/badge/NestJS-10.x-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)](https://nestjs.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![License](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-24.x-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![NestJS](https://img.shields.io/badge/NestJS-11.x-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)](https://nestjs.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![License](https://img.shields.io/badge/License-UNLICENSED-lightgrey?style=for-the-badge)](#license)
 
 [![CI](https://img.shields.io/github/actions/workflow/status/chuanghiduoc/nestjs-boilerplate-enterprise/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/chuanghiduoc/nestjs-boilerplate-enterprise/actions)
 [![Coverage](https://img.shields.io/codecov/c/github/chuanghiduoc/nestjs-boilerplate-enterprise?style=flat-square&label=Coverage)](https://codecov.io/gh/chuanghiduoc/nestjs-boilerplate-enterprise)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](#contributing)
 
 <p align="center">
   <b>A production-ready NestJS boilerplate with Clean Architecture, designed for building scalable enterprise applications.</b>
@@ -38,7 +38,7 @@ Building enterprise applications requires more than just a framework. You need a
 - **Battle-tested architecture** following Clean Architecture and DDD principles
 - **Flexible database layer** supporting PostgreSQL, MongoDB, with TypeORM, Prisma, or Mongoose
 - **Security first** with JWT, OAuth2, RBAC, and comprehensive security hardening
-- **Production ready** with Docker, Kubernetes configs, health checks, and observability
+- **Production ready** with Docker Compose, Kubernetes deployment guidance, health checks, and observability
 
 <br/>
 
@@ -76,7 +76,7 @@ Building enterprise applications requires more than just a framework. You need a
 - [x] **Structured Logging** - JSON logs with correlation ID
 - [x] **Metrics** - Prometheus + OpenTelemetry tracing
 - [x] **Docker** - Production Dockerfile & compose
-- [x] **Kubernetes** - Deployment manifests included
+- [x] **Kubernetes** - Documented API, worker, scheduler, and migration deployment patterns
 
 <br/>
 
@@ -84,7 +84,7 @@ Building enterprise applications requires more than just a framework. You need a
 
 | Category          | Technologies                                    |
 | ----------------- | ----------------------------------------------- |
-| **Framework**     | NestJS 10.x, Node.js 20.x, TypeScript 5.x       |
+| **Framework**     | NestJS 11.x, Node.js 24.x, TypeScript 6.x       |
 | **Database**      | PostgreSQL, MongoDB (switchable via env)        |
 | **ORM**           | TypeORM, Prisma, Mongoose (switchable via env)  |
 | **Cache**         | Redis                                           |
@@ -101,12 +101,12 @@ Building enterprise applications requires more than just a framework. You need a
 
 ### Prerequisites
 
-| Requirement | Version             |
-| ----------- | ------------------- |
-| Node.js     | >= 20.x LTS         |
-| Yarn        | >= 1.22.x           |
-| PostgreSQL  | >= 14.x             |
-| Redis       | >= 6.x _(optional)_ |
+| Requirement | Version                                        |
+| ----------- | ---------------------------------------------- |
+| Node.js     | >= 24.x                                        |
+| pnpm        | >= 11.x                                        |
+| Database    | PostgreSQL 16+, MongoDB 6+, or SQLite          |
+| Redis       | 7.x (required for queues and realtime fan-out) |
 
 ### Quick Install
 
@@ -127,8 +127,10 @@ cp .env.example .env
 # Run database migrations
 pnpm migration:run
 
-# Start development server
+# Start each runtime (use separate terminals)
 pnpm start:dev
+pnpm start:worker:dev
+pnpm start:scheduler:dev
 ```
 
 Application will be available at `http://localhost:3000` (API base path: `http://localhost:3000/api/v1`).
@@ -138,11 +140,11 @@ Interactive Swagger docs (non-production only): `http://localhost:3000/docs`
 ### Using Docker
 
 ```bash
-# Development with hot-reload
-docker-compose up -d
+# Development with hot-reload (starts API, worker, scheduler, PostgreSQL, Redis)
+docker compose up -d
 
 # Production
-docker-compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 <br/>
@@ -289,6 +291,9 @@ Redis             -> Bull persistence and worker-to-API realtime fan-out
 
 Processors are never registered in the API process, and cron providers are only
 registered in the scheduler process. Keep the scheduler at exactly one replica.
+Docker builds one image and starts it as separate API, worker, and scheduler containers.
+Each container has its own Node.js process, heap, event loop, and configurable CPU/memory
+limits, so worker load cannot block the API event loop.
 
 ### Module Structure (DDD)
 
@@ -484,7 +489,7 @@ Error responses include detailed information:
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+Contributions are welcome. Use the workflow below:
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
@@ -517,7 +522,8 @@ chore: update dependencies
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This repository is currently marked `UNLICENSED` in `package.json`; no public-use license has
+been granted. Add a license file and update the package metadata before distributing it.
 
 <br/>
 
